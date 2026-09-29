@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="SalesFlow">
+  <rect width="512" height="512" fill="#216d4f" />
+  <rect x="96" y="96" width="320" height="320" rx="56" fill="none" stroke="#aed9c1" stroke-width="16" />
+  <text
+    x="256"
+    y="300"
+    text-anchor="middle"
+    font-family="Segoe UI, Tahoma, sans-serif"
+    font-size="140"
+    font-weight="600"
+    fill="#ffffff"
+  >
+    SF
+  </text>
+</svg>

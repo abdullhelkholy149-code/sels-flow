@@ -1,0 +1,56 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /*
+     * Font stack without a network fetch: `next/font/google` would make the
+     * Docker build depend on the internet. Arabic shaping is provided by the
+     * platform font and by the PDF font stack in Phase 6.
+     */
+    --font-sans: 'Segoe UI', 'Noto Sans Arabic', 'Dubai', Tahoma, system-ui, -apple-system, sans-serif;
+
+    color-scheme: light;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-surface-muted text-ink antialiased;
+    font-family: var(--font-sans);
+  }
+
+  /* Logical direction helpers: no left/right anywhere in the layout. */
+  [dir='rtl'] {
+    text-align: start;
+  }
+
+  :focus-visible {
+    @apply outline-none ring-2 ring-brand-500 ring-offset-2 ring-offset-white;
+  }
+
+  ::selection {
+    @apply bg-brand-100 text-brand-900;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-card border border-surface-border bg-white shadow-card;
+  }
+
+  .skeleton {
+    @apply animate-pulse rounded bg-surface-sunken;
+  }
+}
+
+@layer utilities {
+  /* Tabular figures keep money columns aligned in both directions. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}

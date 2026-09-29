@@ -1,0 +1,112 @@
+# SalesFlow - local development / single-host production stack
+# Usage: cp .env.example .env  &&  docker compose up
+
+name: salesflow
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: salesflow-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-salesflow}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-salesflow}
+      POSTGRES_DB: ${DATABASE_NAME:-salesflow}
+      # Arabic-aware collation. Every column inherits the database default
+      # collation, so index usage and joins stay consistent.
+      POSTGRES_INITDB_ARGS: '--locale-provider=icu --icu-locale=ar-EG --encoding=UTF8'
+    ports:
+      - '${POSTGRES_PORT:-5432}:5432'
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-salesflow} -d ${DATABASE_NAME:-salesflow}']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  # One-shot service: applies pending migrations, then exits.
+  migrate:
+    build:
+      context: .
+      target: runner
+    container_name: salesflow-migrate
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-salesflow}:${POSTGRES_PASSWORD:-salesflow}@postgres:5432/${DATABASE_NAME:-salesflow}?schema=public
+    command: ['npx', 'prisma', 'migrate', 'deploy']
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+
+  app:
+    build:
+      context: .
+      target: runner
+    container_name: salesflow-app
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+      APP_URL: ${APP_URL:-http://localhost:3000}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-salesflow}:${POSTGRES_PASSWORD:-salesflow}@postgres:5432/${DATABASE_NAME:-salesflow}?schema=public
+      AUTH_SECRET: ${AUTH_SECRET:?AUTH_SECRET must be set in .env}
+      SIGNED_LINK_SECRET: ${SIGNED_LINK_SECRET:?SIGNED_LINK_SECRET must be set in .env}
+      UPLOAD_DIR: /data/uploads
+      WHATSAPP_ENABLED: ${WHATSAPP_ENABLED:-false}
+      WHATSAPP_PROVIDER: ${WHATSAPP_PROVIDER:-console}
+      WHATSAPP_PHONE_NUMBER_ID: ${WHATSAPP_PHONE_NUMBER_ID:-}
+      WHATSAPP_ACCESS_TOKEN: ${WHATSAPP_ACCESS_TOKEN:-}
+      WHATSAPP_WEBHOOK_VERIFY_TOKEN: ${WHATSAPP_WEBHOOK_VERIFY_TOKEN:-}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      LOG_PRETTY: 'false'
+    volumes:
+      - uploads:/data/uploads
+    ports:
+      - '${APP_PORT:-3000}:3000'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -fsS http://127.0.0.1:3000/api/health || exit 1']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+
+  worker:
+    build:
+      context: .
+      target: runner
+    container_name: salesflow-worker
+    restart: unless-stopped
+    command: ['npm', 'run', 'worker']
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-salesflow}:${POSTGRES_PASSWORD:-salesflow}@postgres:5432/${DATABASE_NAME:-salesflow}?schema=public
+      AUTH_SECRET: ${AUTH_SECRET:?AUTH_SECRET must be set in .env}
+      SIGNED_LINK_SECRET: ${SIGNED_LINK_SECRET:?SIGNED_LINK_SECRET must be set in .env}
+      WHATSAPP_ENABLED: ${WHATSAPP_ENABLED:-false}
+      WHATSAPP_PROVIDER: ${WHATSAPP_PROVIDER:-console}
+      WHATSAPP_PHONE_NUMBER_ID: ${WHATSAPP_PHONE_NUMBER_ID:-}
+      WHATSAPP_ACCESS_TOKEN: ${WHATSAPP_ACCESS_TOKEN:-}
+      WHATSAPP_WEBHOOK_VERIFY_TOKEN: ${WHATSAPP_WEBHOOK_VERIFY_TOKEN:-}
+      UPLOAD_DIR: /data/uploads
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      LOG_PRETTY: 'false'
+    volumes:
+      - uploads:/data/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+volumes:
+  postgres-data:
+  uploads:

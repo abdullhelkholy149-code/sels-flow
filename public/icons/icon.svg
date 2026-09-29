@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="SalesFlow">
+  <rect width="512" height="512" rx="96" fill="#216d4f" />
+  <path
+    d="M128 352V160h56c40 0 62 18 62 50 0 22-12 37-32 44l40 98h-56l-34-88h-16v88h-20zm56-124h-16v60h16c14 0 22-11 22-30 0-19-8-30-22-30z"
+    fill="#ffffff"
+  />
+  <path d="M296 352l52-192h34l52 192h-44l-10-40h-60l-10 40h-14zm64-70h34l-17-66-17 66z" fill="#aed9c1" />
+</svg>

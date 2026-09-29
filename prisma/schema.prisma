@@ -1,0 +1,235 @@
+// SalesFlow - Prisma schema
+//
+// RULES THAT MUST NOT BE BROKEN (see docs/PHASES-PLAN.md):
+//  - Money  : Decimal @db.Decimal(14, 2)  - never Float, never JS number
+//  - Qty    : Decimal @db.Decimal(14, 3)
+//  - Percent: Decimal @db.Decimal(5, 2)
+//  - Timestamps are timestamptz (Prisma DateTime) and are stored in UTC
+//  - Master data is soft deleted (deletedAt); financial/stock documents are
+//    never updated or deleted after posting
+//  - Every table has createdAt / updatedAt; documents also have createdBy
+//
+// Phase 0 ships the foundation only. Every later phase adds its own tables
+// through a NEW migration; an applied migration is never edited.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum Role {
+  ADMIN
+  REP
+  CUSTOMER
+  STOREKEEPER
+  ACCOUNTANT
+}
+
+enum AuditAction {
+  // authentication
+  LOGIN
+  LOGIN_FAILED
+  LOGOUT
+  PASSWORD_CHANGE
+  PASSWORD_RESET
+  ACCOUNT_LOCKED
+  ACCOUNT_UNLOCKED
+  // generic entity operations
+  CREATE
+  UPDATE
+  DELETE
+  STATUS_CHANGE
+  APPROVE
+  REJECT
+  CANCEL
+  // business specific
+  CREDIT_OVERRIDE_GRANTED
+  CREDIT_OVERRIDE_REJECTED
+  STOCK_VOUCHER_POSTED
+  STOCK_VOUCHER_ACKNOWLEDGED
+  STOCK_COUNT_POSTED
+  CASH_HANDOVER_CONFIRMED
+  INVOICE_ISSUED
+  CREDIT_NOTE_ISSUED
+  PAYMENT_RECORDED
+  RETURN_RECEIVED
+  RATING_HIDDEN
+  MESSAGE_SENT
+  SETTINGS_UPDATED
+  EXPORT
+}
+
+enum DocumentType {
+  ORDER
+  INVOICE
+  CREDIT_NOTE
+  STOCK_VOUCHER
+  STOCK_COUNT
+  PAYMENT
+  CASH_HANDOVER
+  RETURN_REQUEST
+  VISIT
+  CUSTOMER_CODE
+  PRODUCT_CODE
+  REP_CODE
+}
+
+// ---------------------------------------------------------------------------
+// Identity (Phase 1 owns the behaviour; Phase 0 owns the table)
+// ---------------------------------------------------------------------------
+
+model User {
+  id                  String    @id @default(uuid()) @db.Uuid
+  role                Role
+  username            String?   @unique
+  phone               String    @unique
+  email               String?   @unique
+  passwordHash        String    @map("password_hash")
+  mustChangePassword  Boolean   @default(true) @map("must_change_password")
+  isActive            Boolean   @default(true) @map("is_active")
+  lastLoginAt         DateTime? @map("last_login_at") @db.Timestamptz(6)
+  failedLoginCount    Int       @default(0) @map("failed_login_count")
+  lockedUntil         DateTime? @map("locked_until") @db.Timestamptz(6)
+  deletedAt           DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  rep                 Rep?
+  customer            Customer?
+
+  auditLogs           AuditLog[] @relation("AuditActor")
+
+  @@index([role])
+  @@index([isActive])
+  @@index([deletedAt])
+  @@map("users")
+}
+
+// ---------------------------------------------------------------------------
+// Company settings - singleton row (id = 1) enforced by the service layer
+// ---------------------------------------------------------------------------
+
+model CompanySettings {
+  id                       Int      @id @default(1)
+  legalName                String   @map("legal_name")
+  taxRegistrationNumber    String?  @map("tax_registration_number")
+  branchCode               String?  @map("branch_code")
+  activityCode             String?  @map("activity_code")
+  address                  String?
+  phone                    String?
+  email                    String?
+  logoPath                 String?  @map("logo_path")
+
+  // Business defaults
+  defaultVatRate           Decimal  @default(14) @map("default_vat_rate") @db.Decimal(5, 2)
+  invoicePrefix            String   @default("INV") @map("invoice_prefix")
+  creditNotePrefix         String   @default("CN") @map("credit_note_prefix")
+  orderPrefix              String   @default("ORD") @map("order_prefix")
+  returnWindowDays         Int      @default(7) @map("return_window_days")
+  blockOnOverdue           Boolean  @default(true) @map("block_on_overdue")
+  overdueGraceDays         Int      @default(3) @map("overdue_grace_days")
+  geofenceRadiusM          Int      @default(200) @map("geofence_radius_m")
+  geofenceBlock            Boolean  @default(false) @map("geofence_block")
+  defaultMaxDiscountPercent Decimal @default(10) @map("default_max_discount_percent") @db.Decimal(5, 2)
+  whatsappEnabled          Boolean  @default(false) @map("whatsapp_enabled")
+  defaultCreditDays        Int      @default(30) @map("default_credit_days")
+
+  createdAt                DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("company_settings")
+}
+
+// ---------------------------------------------------------------------------
+// Audit log - append only, never updated or deleted
+// ---------------------------------------------------------------------------
+
+model AuditLog {
+  id           String   @id @default(uuid()) @db.Uuid
+  actorUserId  String?  @map("actor_user_id") @db.Uuid
+  actorRole    Role?    @map("actor_role")
+  action       AuditAction
+  entityType   String   @map("entity_type")
+  entityId     String   @map("entity_id")
+  beforeJson   Json?    @map("before_json")
+  afterJson    Json?    @map("after_json")
+  metadata     Json?
+  ip           String?
+  userAgent    String?  @map("user_agent")
+  at           DateTime @default(now()) @db.Timestamptz(6)
+
+  actor        User?    @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId])
+  @@index([actorUserId, at])
+  @@index([at])
+  @@index([action, at])
+  @@map("audit_logs")
+}
+
+// ---------------------------------------------------------------------------
+// Gapless document numbering counters - locked with SELECT ... FOR UPDATE
+// inside the same transaction that writes the document.
+// ---------------------------------------------------------------------------
+
+model DocumentCounter {
+  id         String       @id @default(uuid()) @db.Uuid
+  docType    DocumentType @map("doc_type")
+  year       Int
+  lastValue  Int          @default(0) @map("last_value")
+  createdAt  DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([docType, year], name: "document_counters_type_year_key")
+  @@index([docType])
+  @@map("document_counters")
+}
+
+// ---------------------------------------------------------------------------
+// Forward references
+// Declared in later phases. Prisma requires the models to exist for the
+// relations above, so minimal shells are kept here and grow in place.
+// ---------------------------------------------------------------------------
+
+model Rep {
+  id                    String    @id @default(uuid()) @db.Uuid
+  userId                String    @unique @map("user_id") @db.Uuid
+  code                  String    @unique
+  name                  String
+  phone                 String
+  maxDiscountPercent    Decimal   @default(10) @map("max_discount_percent") @db.Decimal(5, 2)
+  isActive              Boolean   @default(true) @map("is_active")
+  hiredAt               DateTime? @map("hired_at") @db.Date
+  deletedAt             DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([isActive])
+  @@index([deletedAt])
+  @@map("reps")
+}
+
+model Customer {
+  id                String    @id @default(uuid()) @db.Uuid
+  userId            String?   @unique @map("user_id") @db.Uuid
+  code              String    @unique
+  name              String
+  deletedAt         DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user              User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([deletedAt])
+  @@map("customers")
+}

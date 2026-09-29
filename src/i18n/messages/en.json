@@ -1,0 +1,53 @@
+{
+  "app": {
+    "name": "SalesFlow",
+    "tagline": "Product distribution through sales representatives"
+  },
+  "common": {
+    "currency": "EGP",
+    "loading": "Loading...",
+    "save": "Save",
+    "cancel": "Cancel",
+    "back": "Back",
+    "next": "Next",
+    "search": "Search",
+    "actions": "Actions",
+    "status": "Status",
+    "total": "Total",
+    "yes": "Yes",
+    "no": "No"
+  },
+  "nav": {
+    "home": "Home",
+    "language": "Language",
+    "phaseStatus": "Project status"
+  },
+  "home": {
+    "title": "Welcome to SalesFlow",
+    "subtitle": "Sales, customers and stock in one place",
+    "phaseZeroTitle": "Phase 0: Bootstrap",
+    "phaseZeroBody": "Project structure, database, Docker, an Arabic right-to-left interface, and a health endpoint.",
+    "nextTitle": "What comes next",
+    "nextBody": "Authentication and roles, then catalog and pricing, then reps and customers.",
+    "docsTitle": "Documentation",
+    "systemStatus": "System status"
+  },
+  "health": {
+    "title": "System health",
+    "ok": "All systems operational",
+    "degraded": "Running with problems",
+    "databaseUp": "Database reachable",
+    "databaseDown": "Database unreachable"
+  },
+  "footer": {
+    "builtWith": "Internal platform for sales and distribution",
+    "version": "Version"
+  },
+  "notFound": {
+    "title": "Page not found",
+    "body": "The requested link is unavailable. The item may have been deleted, or you may not have access to it."
+  },
+  "privacy": {
+    "gpsNotice": "Location is recorded only on explicit actions such as visit check-in or delivery. There is no background tracking."
+  }
+}
