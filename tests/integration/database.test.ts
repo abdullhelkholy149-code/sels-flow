@@ -52,13 +52,16 @@ describe('migrations', () => {
   });
 
   it('is recorded as applied, not pending', async () => {
-    const rows = await prisma.$queryRaw<Array<{ is_migration: boolean }>>`
-      SELECT is_migration
+    const rows = await prisma.$queryRaw<
+      Array<{ migration_name: string; finished_at: Date | null }>
+    >`
+      SELECT migration_name, finished_at
       FROM _prisma_migrations
     `;
 
-    expect(rows.length).toBeGreaterThan(0);
-    expect(rows.every((row) => row.is_migration)).toBe(true);
+    expect(rows.map((row) => row.migration_name)).toContain('20260101000000_init_foundation');
+    // A migration is only recorded once it ran to completion.
+    expect(rows.every((row) => row.finished_at !== null)).toBe(true);
   });
 
   it('has no failed or rolled back migration', async () => {
