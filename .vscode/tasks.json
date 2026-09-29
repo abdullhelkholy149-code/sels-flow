@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json.schemastore.org/tasks",
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "db: up",
+      "detail": "Start PostgreSQL, run migrations and seed",
+      "type": "shell",
+      "command": "docker compose up -d postgres && npm run db:deploy && npm run db:seed",
+      "problemMatcher": []
+    },
+    {
+      "label": "db: down",
+      "detail": "Stop the local database container",
+      "type": "shell",
+      "command": "docker compose down",
+      "problemMatcher": []
+    },
+    {
+      "label": "db: reset",
+      "detail": "Drop the database and re-apply every migration (destroys data)",
+      "type": "shell",
+      "command": "npm run db:reset -- --force",
+      "problemMatcher": []
+    },
+    {
+      "label": "dev: app",
+      "detail": "Next.js development server on http://localhost:3000/ar",
+      "type": "npm",
+      "script": "dev",
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "typescript",
+        "fileLocation": ["relative", "${workspaceFolder}"],
+        "pattern": {
+          "regexp": "^$",
+          "file": 1,
+          "location": 2
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "Ready|started server|ready started server|Local:",
+          "endsPattern": "error|Error|EADDRINUSE"
+        }
+      }
+    },
+    {
+      "label": "dev: worker",
+      "detail": "Background job worker",
+      "type": "npm",
+      "script": "worker",
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "typescript",
+        "fileLocation": ["relative", "${workspaceFolder}"],
+        "pattern": {
+          "regexp": "^$",
+          "file": 1,
+          "location": 2
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "worker started",
+          "endsPattern": "worker failed to start"
+        }
+      }
+    },
+    {
+      "label": "test: unit",
+      "detail": "Run the unit test suite once",
+      "type": "npm",
+      "script": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "test: watch",
+      "detail": "Unit tests in watch mode",
+      "type": "shell",
+      "command": "npm run test:watch",
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": { "reveal": "always" }
+    },
+    {
+      "label": "ci",
+      "detail": "typecheck + lint + format check + unit tests",
+      "type": "npm",
+      "script": "ci",
+      "group": { "kind": "test", "isDefault": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "prisma: studio",
+      "detail": "Browse the database",
+      "type": "npm",
+      "script": "db:studio",
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "typescript",
+        "fileLocation": ["relative", "${workspaceFolder}"],
+        "pattern": { "regexp": "^$", "file": 1, "location": 2 },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "Prisma Studio",
+          "endsPattern": "error"
+        }
+      }
+    }
+  ]
+}

@@ -45,7 +45,9 @@ export function SystemStatus() {
 
   return (
     <div className="flex flex-col gap-1">
-      <p className={healthy ? 'text-sm font-medium text-success' : 'text-sm font-medium text-danger'}>
+      <p
+        className={healthy ? 'text-sm font-medium text-success' : 'text-sm font-medium text-danger'}
+      >
         {healthy ? t('ok') : t('degraded')}
       </p>
       <p className="text-sm text-ink-muted">

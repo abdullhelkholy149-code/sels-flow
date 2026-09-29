@@ -16,9 +16,8 @@ export default defineConfig({
     setupFiles: ['./tests/setup/integration.ts'],
     fileParallelism: false,
     pool: 'forks',
-    poolOptions: {
-      forks: { singleFork: true },
-    },
+    // A single worker, because integration tests truncate shared tables.
+    maxWorkers: 1,
     testTimeout: 60_000,
     hookTimeout: 60_000,
   },

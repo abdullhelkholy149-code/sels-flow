@@ -6,7 +6,6 @@
 import { PrismaClient, type Prisma } from '@prisma/client';
 
 import { getEnv } from '@/config/env';
-import { logger } from '@/lib/logger';
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
@@ -15,10 +14,10 @@ function createClient(): PrismaClient {
   getEnv();
 
   return new PrismaClient({
-    log: [
-      { emit: 'event', level: 'warn' },
-      { emit: 'event', level: 'error' },
-    ],
+    // Log levels are written to stdout, which is what the container runtime and
+    // any log collector expects. Keeping them as plain strings avoids depending
+    // on the client event API.
+    log: ['warn', 'error'],
   });
 }
 
@@ -27,14 +26,6 @@ export const prisma: PrismaClient = globalForPrisma.prisma ?? createClient();
 if (process.env.NODE_ENV !== 'production') {
   globalForPrisma.prisma = prisma;
 }
-
-prisma.$on('warn', (event) => {
-  logger.warn({ target: event.target }, 'prisma warning');
-});
-
-prisma.$on('error', (event) => {
-  logger.error({ target: event.target }, 'prisma error');
-});
 
 export type Tx = Prisma.TransactionClient;
 

@@ -30,7 +30,9 @@ async function main(): Promise<void> {
     update: {},
   });
 
-  const existingAdmin = await prisma.user.findUnique({ where: { username: env.SEED_ADMIN_USERNAME } });
+  const existingAdmin = await prisma.user.findUnique({
+    where: { username: env.SEED_ADMIN_USERNAME },
+  });
 
   if (!existingAdmin) {
     await prisma.user.create({
@@ -49,7 +51,10 @@ async function main(): Promise<void> {
     process.stdout.write('admin already exists, skipped\n');
   }
 
-  const [users, settings] = await Promise.all([prisma.user.count(), prisma.companySettings.count()]);
+  const [users, settings] = await Promise.all([
+    prisma.user.count(),
+    prisma.companySettings.count(),
+  ]);
   process.stdout.write(`seed done: users=${users} settings=${settings}\n`);
 }
 

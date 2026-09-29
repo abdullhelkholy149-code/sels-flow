@@ -12,7 +12,15 @@ type Level = 'fatal' | 'error' | 'warn' | 'info' | 'debug' | 'trace' | 'silent';
 
 function readLevel(): Level {
   const raw = process.env.LOG_LEVEL;
-  if (raw === 'fatal' || raw === 'error' || raw === 'warn' || raw === 'info' || raw === 'debug' || raw === 'trace' || raw === 'silent') {
+  if (
+    raw === 'fatal' ||
+    raw === 'error' ||
+    raw === 'warn' ||
+    raw === 'info' ||
+    raw === 'debug' ||
+    raw === 'trace' ||
+    raw === 'silent'
+  ) {
     return raw;
   }
   return 'info';
@@ -45,7 +53,11 @@ export const logger: Logger = pino({
     ? {
         transport: {
           target: 'pino-pretty',
-          options: { colorize: true, translateTime: 'SYS:HH:MM:ss', ignore: 'pid,hostname,service' },
+          options: {
+            colorize: true,
+            translateTime: 'SYS:HH:MM:ss',
+            ignore: 'pid,hostname,service',
+          },
         },
       }
     : {}),

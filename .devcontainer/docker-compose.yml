@@ -1,0 +1,61 @@
+# SalesFlow - development stack for GitHub Codespaces (and any compose host)
+#
+# The devcontainer attaches to the `app` service, which is the workspace
+# container. PostgreSQL runs next to it on the same compose network, so the
+# database is reachable as `postgres` while the app runs on the host.
+#
+# This file is for development only. Production uses docker-compose.yml.
+
+name: salesflow-dev
+
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: ../Dockerfile
+      target: dev
+    container_name: salesflow-codespace-app
+    # Keep the workspace container alive; the dev server is started manually.
+    command: sleep infinity
+    environment:
+      NODE_ENV: development
+      APP_URL: http://localhost:3000
+      DATABASE_URL: postgresql://salesflow:salesflow@postgres:5432/salesflow?schema=public
+      TEST_DATABASE_URL: postgresql://salesflow:salesflow@postgres:5432/salesflow_test?schema=public
+      LOG_LEVEL: info
+      LOG_PRETTY: 'true'
+    volumes:
+      - ..:/workspaces/${localWorkspaceFolderBasename}:cached
+      # Keep dependencies out of the bind mount so installs stay fast and
+      # survive image rebuilds.
+      - node-modules:/workspaces/${localWorkspaceFolderBasename}/node_modules
+    working_dir: /workspaces/${localWorkspaceFolderBasename}
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: salesflow-codespace-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: salesflow
+      POSTGRES_PASSWORD: salesflow
+      POSTGRES_DB: salesflow
+      # Arabic aware collation for every column that inherits the database default.
+      POSTGRES_INITDB_ARGS: '--locale-provider=icu --icu-locale=ar-EG --encoding=UTF8'
+    command:
+      - postgres
+      - -c
+      - max_connections=200
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U salesflow -d salesflow']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      # Creates the integration test database on first initialisation.
+      - ./init:/docker-entrypoint-initdb.d:ro
+
+volumes:
+  node-modules:
+  postgres-data:

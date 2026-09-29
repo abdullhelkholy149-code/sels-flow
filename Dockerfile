@@ -16,6 +16,17 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 
 # ---------------------------------------------------------------------------
+# Development / Codespaces image.
+#
+# Built on the official devcontainer base image so the Codespaces user, sudo and
+# VS Code server behave normally, plus postgresql-client for pg_isready.
+FROM mcr.microsoft.com/devcontainers/typescript-node:22-bookworm AS dev
+USER root
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends postgresql-client \
+  && rm -rf /var/lib/apt/lists/*
+
+# ---------------------------------------------------------------------------
 FROM base AS deps
 ENV NODE_ENV=development
 COPY package.json package-lock.json* ./

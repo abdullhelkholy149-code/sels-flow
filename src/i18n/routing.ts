@@ -16,6 +16,15 @@ export const LOCALES = routing.locales;
 
 export const DEFAULT_LOCALE: Locale = routing.defaultLocale;
 
+/**
+ * Type guard for a locale string.
+ * Local instead of relying on a helper from the i18n library, so the check is
+ * explicit and testable.
+ */
+export function isLocale(value: unknown): value is Locale {
+  return typeof value === 'string' && (routing.locales as readonly string[]).includes(value);
+}
+
 export function isRtlLocale(locale: string): boolean {
   return locale === 'ar';
 }

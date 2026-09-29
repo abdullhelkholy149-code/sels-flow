@@ -14,12 +14,31 @@ offline)، بواجهة عربية من اليمين إلى اليسار، وط�
 | [`docs/OPERATIONS.md`](docs/OPERATIONS.md) | دليل التشغيل والصيانة |
 | [`docs/E-INVOICE.md`](docs/E-INVOICE.md) | الفاتورة الإلكترونية: بنية فقط، بلا تنفيذ |
 
-## المتطلبات
+## التشغيل على GitHub Codespaces (الطريقة المفضّلة)
 
-- Node.js 22 LTS
-- Docker (للتشغيل المحلي الكامل) أو PostgreSQL 16 محلياً
+اضغط **Code** في أعلى صفحة المستودع على GitHub. الـ devcontainer مبني في
+`.devcontainer/` ويقوم تلقائياً بما يلي عند أول إنشاء:
 
-## التشغيل
+1. يبني صورة التطوير ويشغّل PostgreSQL 16 بجانبه
+2. ينشئ `.env` بأسرار تطوير مولّدة تلقائياً (لا تُنسخ من أي مكان)
+3. يثبّت الحزم و`prisma generate`
+4. يطبّق الترحيلات ويزرع أول حساب مدير
+5. يعرض منفذ 3000 تلقائياً في المتصفح
+
+بعدها داخل الـ Codespace:
+
+```bash
+npm run dev               # http://localhost:3000/ar
+npm run worker            # طابور المهام
+```
+
+لإعادة بناء قاعدة البيانات من الصفر:
+
+```bash
+npm run db:setup          # ترحيلات + بذور
+```
+
+## التشغيل على جهاز محلي (بديل)
 
 ```bash
 cp .env.example .env      # ثم عدّل الأسرار: openssl rand -base64 32
@@ -27,11 +46,11 @@ npm install
 docker compose up         # postgres + migrate + app + worker
 ```
 
-أو محلياً بدون Docker:
+أو بدون Docker:
 
 ```bash
-npm run dev               # التطبيق على http://localhost:3000/ar
-npm run worker            # طابور المهام
+npm run dev
+npm run worker
 ```
 
 ## التحقق قبل اعتبار أي مرحلة منتهية

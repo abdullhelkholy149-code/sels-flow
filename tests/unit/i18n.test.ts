@@ -42,7 +42,10 @@ describe('i18n message catalogs', () => {
         const value = key
           .split('.')
           .reduce<unknown>((node, part) => (node as Record<string, unknown>)[part], catalog);
-        expect(typeof value === 'string' && value.trim().length > 0, `${locale}.${key} is empty`).toBe(true);
+        expect(
+          typeof value === 'string' && value.trim().length > 0,
+          `${locale}.${key} is empty`,
+        ).toBe(true);
       }
     }
   });

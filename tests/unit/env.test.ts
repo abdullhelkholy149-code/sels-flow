@@ -29,7 +29,9 @@ describe('parseEnv', () => {
 
   it('requires secrets of at least 32 characters', () => {
     expect(() => parseEnv({ ...minimalSource, AUTH_SECRET: 'short' })).toThrow(/AUTH_SECRET/);
-    expect(() => parseEnv({ ...minimalSource, SIGNED_LINK_SECRET: 'short' })).toThrow(/SIGNED_LINK_SECRET/);
+    expect(() => parseEnv({ ...minimalSource, SIGNED_LINK_SECRET: 'short' })).toThrow(
+      /SIGNED_LINK_SECRET/,
+    );
   });
 
   it('coerces booleans from strings, not from Boolean("false")', () => {
@@ -65,7 +67,9 @@ describe('parseEnv', () => {
   });
 
   it('requires cloud credentials whenever the cloud provider is selected', () => {
-    expect(() => parseEnv({ ...minimalSource, WHATSAPP_PROVIDER: 'cloud' })).toThrow(/WHATSAPP_ACCESS_TOKEN/);
+    expect(() => parseEnv({ ...minimalSource, WHATSAPP_PROVIDER: 'cloud' })).toThrow(
+      /WHATSAPP_ACCESS_TOKEN/,
+    );
     expect(
       parseEnv({
         ...minimalSource,

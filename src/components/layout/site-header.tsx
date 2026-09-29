@@ -26,7 +26,10 @@ export function SiteHeader() {
           </Link>
 
           <nav aria-label={t('home')} className="flex items-center gap-3">
-            <Link href="/" className="rounded-md px-3 py-2 text-sm text-ink-muted hover:bg-surface-muted">
+            <Link
+              href="/"
+              className="rounded-md px-3 py-2 text-sm text-ink-muted hover:bg-surface-muted"
+            >
               {t('home')}
             </Link>
             <LocaleSwitcher />

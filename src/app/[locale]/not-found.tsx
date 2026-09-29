@@ -1,12 +1,18 @@
 import { getTranslations } from 'next-intl/server';
 
 import { Container } from '@/components/ui/container';
+import { isLocale, routing } from '@/i18n/routing';
 import { Link } from '@/i18n/navigation';
 
-type NotFoundProps = { params: Promise<{ locale: string }> };
+/**
+ * Next.js prerenders the not-found boundary without route params, so `params`
+ * is optional here and the default locale is used when it is missing.
+ */
+type NotFoundProps = { params?: Promise<{ locale: string }> };
 
 export default async function NotFound({ params }: NotFoundProps) {
-  const { locale } = await params;
+  const requested = params ? (await params).locale : undefined;
+  const locale = isLocale(requested) ? requested : routing.defaultLocale;
   const t = await getTranslations({ locale, namespace: 'notFound' });
   const tNav = await getTranslations({ locale, namespace: 'nav' });
 

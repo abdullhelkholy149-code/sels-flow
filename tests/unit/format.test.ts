@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
 import { DEFAULT_NUMBER_LOCALE } from '@/lib/constants';
-import { Decimal, formatDate, formatDateTime, formatMoney, formatNumber, formatPercent, formatQuantity } from '@/lib/format';
+import {
+  Decimal,
+  formatDate,
+  formatDateTime,
+  formatMoney,
+  formatNumber,
+  formatPercent,
+  formatQuantity,
+} from '@/lib/format';
 
 /**
  * Formatting rules that are easy to break and expensive to break in an

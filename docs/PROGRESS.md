@@ -9,7 +9,7 @@
 
 | المرحلة | الحالة | معيار القبول | التحقق |
 |---|---|---|---|
-| 0 Bootstrap | قيد التنفيذ | `docker compose up` → صفحة عربية RTL + اختبارات خضراء | ⛔ معلّق (لا توجد أدوات على الجهاز) |
+| 0 Bootstrap | مُنفَّذة، بانتظار تشغيل قاعدة البيانات | صفحة عربية RTL + اختبارات خضراء | ✅ آلياً · ⏳ على PostgreSQL |
 | 1 Auth/RBAC | لم تبدأ | — | — |
 | 2 الكتالوج والتسعير | لم تبدأ | — | — |
 | 3 المناديب والعملاء | لم تبدأ | — | — |
@@ -25,41 +25,53 @@
 
 ---
 
-## ⛔ بانتظار التحقق (Verification Blockers)
+## ✅ ما تم التحقق منه فعلياً
 
-هذه البيئة **لا تحتوي** على Node.js أو Docker أو PostgreSQL. لذلك كل ما يلي مكتوب
-لكن **لم يُنفَّذ بعد**. لا تُعتبر أي مرحلة منتهية قبل تشغيل هذه القائمة:
+البيئة المعتمدة للتطوير هي **GitHub Codespaces** (حاوية لينكس + PostgreSQL)،
+لأن جهاز التطوير لا يحمل Node ولا Docker. نتيجة الفحوص على Node 24 / npm 11:
+
+| الأمر | النتيجة |
+|---|---|
+| `npm install` | 488 حزمة، صفر ثغرات |
+| `npm run db:generate` | نجح |
+| `npm run typecheck` | نظيف |
+| `npm run lint` | نظيف |
+| `npm run format:check` | نظيف |
+| `npm run test` | 34/34 ناجحة |
+| `npm run db:validate` | المخطط صالح |
+| `npx prisma migrate diff` | أنشأ `prisma/migrations/20260101000000_init_foundation/` |
+| `npm run build` | نجح، `/ar` و`/en` مبنيّان static |
+| `npm audit --audit-level=high` | صفر (كانت 15 منها 3 حرجة) |
+
+## ⏳ بانتظار التحقق (على PostgreSQL حقيقي)
+
+الترحيلات مولَّدة والبناء ناجح، لكن لم يُشغَّل شيء مقابل قاعدة بيانات بعد.
+أول تشغيل في Codespaces يغطي هذه القائمة:
 
 ```bash
-npm install
-npm run db:generate          # prisma generate
-npm run db:migrate           # إنشاء أول migration + تطبيقها على قاعدة بيانات فارغة
-npm run typecheck            # tsc --noEmit
-npm run lint                 # eslint
-npm run test                 # vitest run (unit)
-npm run test:int             # vitest run (يحتاج قاعدة بيانات اختبار)
-npm run ci                   # السلسلة كاملة
-docker compose up            # app + postgres + worker
-```
-
-### قاعدة بيانات الاختبار
-
-```bash
-docker compose -f docker-compose.test.yml up -d
-npm run test:int
+npm run db:setup          # prisma migrate deploy + prisma db seed
+npm run test:int          # اختبارات التكامل على salesflow_test
+npm run dev               # ثم افتح /ar وتأكد أن الاتجاه RTL
+curl -i localhost:3000/api/health   # يتوقع 200 و database: up
+npm run build && npm start
 ```
 
 ### قائمة تدقيق يدوية قبل إعلان المرحلة 0 منتهية
 
-- [ ] `docker compose up` يقلع بنجاح والصفحة العربية تظهر RTL على `/ar`
+- [x] `npm run typecheck` بلا أخطاء
+- [x] `npm run lint` بلا أخطاء
+- [x] `npm run format:check` بلا أخطاء
+- [x] `npm run test` أخضر (34/34)
+- [x] `npm run db:validate` والمخطط صالح
+- [x] `npm run build` ناجح
+- [x] `npm audit --audit-level=high` صفر
+- [x] `prisma/migrations/` مولَّدة ومُودعة مع `migration_lock.toml`
+- [x] لا قيم سرية داخل المستودع؛ الأسرار من `.env` فقط
+- [ ] `npm run db:setup` يطبّق الترحيلات على قاعدة فارغة
+- [ ] `npm run test:int` أخضر
+- [ ] `/ar` تظهر RTL والصفحة تقرأ بالعربية
 - [ ] `GET /api/health` يرجع `200` مع `{"status":"ok","checks":{"database":"up"}}`
-- [ ] `npx prisma migrate dev` أنشأ `prisma/migrations/0_init/migration.sql` بلا أخطاء
-- [ ] `npx prisma migrate status` نظيف على قاعدة فارغة وعلى قاعدة مُبذورة
-- [ ] `npm run typecheck` بلا أخطاء
-- [ ] `npm run lint` بلا أخطاء
-- [ ] `npm run test` أخضر
-- [ ] `npm run format:check` بلا أخطاء
-- [ ] كل الأسرار من ملف `.env` فقط، ولا قيم سرية داخل المستودع
+- [ ] `npm run build && npm start` يعمل خارج بيئة التطوير
 
 ---
 
@@ -84,8 +96,10 @@ npm run test:int
 
 ### نتائج التحقق
 
-⛔ **معلّقة** — بانتظار `npm install && npm run ci` (انظر القائمة أعلاه).
+✅ **آلياً مكتمل** — كل ما لا يحتاج قاعدة بيانات (الجدول أعلاه).
+⏳ **معلّق** — الترحيلات على PostgreSQL حقيقي و`/api/health` و`test:int`.
 
 ### الـ Commit
 
-`phase-0: bootstrap project, docker compose, prisma, rtl arabic shell, health endpoint`
+- `phase-0: bootstrap project, docker compose, prisma, rtl arabic shell, health endpoint`
+- `phase-0: verify phase 0, patch money and date formatting, add codespaces devcontainer`

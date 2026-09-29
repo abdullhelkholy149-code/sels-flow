@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
 import { cn } from '@/lib/cn';
-import { APP_NAME, CURRENCY, DISPLAY_TIME_ZONE, MONEY_DECIMAL_PLACES, QUANTITY_DECIMAL_PLACES, STORAGE_TIME_ZONE } from '@/lib/constants';
+import {
+  APP_NAME,
+  CURRENCY,
+  DISPLAY_TIME_ZONE,
+  MONEY_DECIMAL_PLACES,
+  QUANTITY_DECIMAL_PLACES,
+  STORAGE_TIME_ZONE,
+} from '@/lib/constants';
 
 describe('cn', () => {
   it('joins class names and drops falsy values', () => {

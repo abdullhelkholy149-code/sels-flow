@@ -17,7 +17,7 @@ const booleanFromEnv = z.preprocess((value) => {
   if (typeof value !== 'string') return value;
   const normalized = value.trim().toLowerCase();
   if (['true', '1', 'yes', 'on'].includes(normalized)) return true;
-  if (['false', '0', 'no', 'off', '']).includes(normalized)) return false;
+  if (['false', '0', 'no', 'off', ''].includes(normalized)) return false;
   return value;
 }, z.boolean());
 
@@ -66,7 +66,9 @@ const envSchema = z
     EINVOICE_GATEWAY_TOKEN: z.string().optional(),
 
     // observability
-    LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
+    LOG_LEVEL: z
+      .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
+      .default('info'),
     LOG_PRETTY: booleanFromEnv.default(false),
 
     // seed only
@@ -78,7 +80,11 @@ const envSchema = z
     // Placeholder secrets must never reach production.
     if (value.NODE_ENV === 'production') {
       if (value.AUTH_SECRET.includes(placeholder)) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['AUTH_SECRET'], message: 'placeholder secret in production' });
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['AUTH_SECRET'],
+          message: 'placeholder secret in production',
+        });
       }
       if (value.SIGNED_LINK_SECRET.includes(placeholder)) {
         ctx.addIssue({
@@ -91,7 +97,10 @@ const envSchema = z
 
     // The cloud provider is useless without credentials, and silently drops
     // messages when they are missing. Never start in that state.
-    if (value.WHATSAPP_PROVIDER === 'cloud' && !(value.WHATSAPP_PHONE_NUMBER_ID && value.WHATSAPP_ACCESS_TOKEN)) {
+    if (
+      value.WHATSAPP_PROVIDER === 'cloud' &&
+      !(value.WHATSAPP_PHONE_NUMBER_ID && value.WHATSAPP_ACCESS_TOKEN)
+    ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['WHATSAPP_ACCESS_TOKEN'],
@@ -101,7 +110,11 @@ const envSchema = z
 
     // The console provider only prints. Using it in production with WhatsApp
     // turned on would silently drop every message.
-    if (value.NODE_ENV === 'production' && value.WHATSAPP_ENABLED && value.WHATSAPP_PROVIDER === 'console') {
+    if (
+      value.NODE_ENV === 'production' &&
+      value.WHATSAPP_ENABLED &&
+      value.WHATSAPP_PROVIDER === 'console'
+    ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['WHATSAPP_PROVIDER'],

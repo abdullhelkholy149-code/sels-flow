@@ -28,7 +28,11 @@ test-results/
 # prisma
 prisma/*.db
 prisma/*.db-journal
-/prisma/migrations/**/migration_lock.toml
+# NOTE: prisma/migrations/migration_lock.toml IS committed on purpose. Prisma
+# refuses to apply migrations when it is missing.
+
+# codespaces / devcontainer local data
+.data/
 
 # logs
 *.log

@@ -20,7 +20,8 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-salesflow} -d ${DATABASE_NAME:-salesflow}']
+      test:
+        ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-salesflow} -d ${DATABASE_NAME:-salesflow}']
       interval: 10s
       timeout: 5s
       retries: 10

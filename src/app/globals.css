@@ -9,7 +9,8 @@
      * Docker build depend on the internet. Arabic shaping is provided by the
      * platform font and by the PDF font stack in Phase 6.
      */
-    --font-sans: 'Segoe UI', 'Noto Sans Arabic', 'Dubai', Tahoma, system-ui, -apple-system, sans-serif;
+    --font-sans: 'Segoe UI', 'Noto Sans Arabic', 'Dubai', Tahoma, system-ui, -apple-system,
+      sans-serif;
 
     color-scheme: light;
   }

@@ -22,5 +22,8 @@ export default function setup(): void {
     );
   }
 
-  execSync('npx prisma migrate deploy', { stdio: 'inherit', env: { ...process.env, DATABASE_URL: url } });
+  execSync('npx prisma migrate deploy', {
+    stdio: 'inherit',
+    env: { ...process.env, DATABASE_URL: url },
+  });
 }

@@ -27,7 +27,10 @@ function toDecimal(value: Decimal.Value): Decimal {
   return Decimal.isDecimal(value) ? value : new Decimal(value);
 }
 
-function numberFormat(locale: string | undefined, options: Intl.NumberFormatOptions): Intl.NumberFormat {
+function numberFormat(
+  locale: string | undefined,
+  options: Intl.NumberFormatOptions,
+): Intl.NumberFormat {
   return new Intl.NumberFormat(locale ?? DEFAULT_NUMBER_LOCALE, options);
 }
 
@@ -35,22 +38,35 @@ function numberFormat(locale: string | undefined, options: Intl.NumberFormatOpti
 type StringCapableFormatter = { format: (value: string) => string };
 
 /**
+ * Invisible bidirectional controls. Intl injects them in Arabic locales
+ * (for example between the date and the time). They are invisible but they
+ * break string comparison, copy/paste into Excel, and PDF text extraction, so
+ * every formatted value goes through this cleanup.
+ */
+const BIDI_CONTROLS = /[\u200e\u200f\u061c\u2066-\u2069]/g;
+
+function stripBidi(value: string): string {
+  return value.replace(BIDI_CONTROLS, '');
+}
+
+/**
  * Groups a plain decimal string without ever touching a JS number.
  * `Intl.NumberFormat.format` accepts a string and applies grouping correctly,
  * which keeps the whole formatting path free of floating point.
  */
-function groupDecimalString(locale: string | undefined, plain: string, fractionDigits: number): string {
+function groupDecimalString(
+  locale: string | undefined,
+  plain: string,
+  minFractionDigits: number,
+  maxFractionDigits: number,
+): string {
   const formatter = numberFormat(locale, {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: fractionDigits,
+    minimumFractionDigits: minFractionDigits,
+    maximumFractionDigits: maxFractionDigits,
     useGrouping: true,
   });
 
-  const formatted = (formatter as unknown as StringCapableFormatter).format(plain);
-
-  // Some locales wrap numbers in invisible bidi controls. They break string
-  // comparison in tests and copy/paste in Excel, so they are removed here.
-  return formatted.replace(/[\u200e\u200f\u061c\u2066-\u2069]/g, '');
+  return stripBidi((formatter as unknown as StringCapableFormatter).format(plain));
 }
 
 function trimTrailingZeros(plain: string): string {
@@ -64,9 +80,17 @@ function trimTrailingZeros(plain: string): string {
  * The currency label is passed in (or defaulted) so the text comes from i18n
  * and never from a hard coded string inside a component.
  */
-export function formatMoney(value: Decimal.Value, options: FormatOptions & { currencyLabel?: string } = {}): string {
+export function formatMoney(
+  value: Decimal.Value,
+  options: FormatOptions & { currencyLabel?: string } = {},
+): string {
   const amount = toDecimal(value).toDecimalPlaces(MONEY_DECIMAL_PLACES, Decimal.ROUND_HALF_UP);
-  const formatted = groupDecimalString(options.locale, amount.toFixed(MONEY_DECIMAL_PLACES), MONEY_DECIMAL_PLACES);
+  const formatted = groupDecimalString(
+    options.locale,
+    amount.toFixed(MONEY_DECIMAL_PLACES),
+    MONEY_DECIMAL_PLACES,
+    MONEY_DECIMAL_PLACES,
+  );
   const label = options.currencyLabel ?? defaultCurrencyLabel(options.locale);
   return label ? `${formatted} ${label}` : formatted;
 }
@@ -75,43 +99,53 @@ export function formatMoney(value: Decimal.Value, options: FormatOptions & { cur
 export function formatQuantity(value: Decimal.Value, options: FormatOptions = {}): string {
   const quantity = toDecimal(value).toDecimalPlaces(QUANTITY_DECIMAL_PLACES, Decimal.ROUND_HALF_UP);
   const plain = trimTrailingZeros(quantity.toFixed(QUANTITY_DECIMAL_PLACES));
-  return groupDecimalString(options.locale, plain, QUANTITY_DECIMAL_PLACES);
+  return groupDecimalString(options.locale, plain, 0, QUANTITY_DECIMAL_PLACES);
 }
 
 /** Percentage: two decimals with a trailing percent sign. */
 export function formatPercent(value: Decimal.Value, options: FormatOptions = {}): string {
   const percent = toDecimal(value).toDecimalPlaces(MONEY_DECIMAL_PLACES, Decimal.ROUND_HALF_UP);
   const plain = trimTrailingZeros(percent.toFixed(MONEY_DECIMAL_PLACES));
-  return `${groupDecimalString(options.locale, plain, MONEY_DECIMAL_PLACES)}%`;
+  return `${groupDecimalString(options.locale, plain, 0, MONEY_DECIMAL_PLACES)}%`;
 }
 
-export function formatNumber(value: Decimal.Value, options: FormatOptions & { maxDecimals?: number } = {}): string {
+export function formatNumber(
+  value: Decimal.Value,
+  options: FormatOptions & { maxDecimals?: number } = {},
+): string {
   const maxDecimals = options.maxDecimals ?? MONEY_DECIMAL_PLACES;
   const number = toDecimal(value).toDecimalPlaces(maxDecimals, Decimal.ROUND_HALF_UP);
   const plain = trimTrailingZeros(number.toFixed(maxDecimals));
-  return groupDecimalString(options.locale, plain, maxDecimals);
+  return groupDecimalString(options.locale, plain, 0, maxDecimals);
 }
 
 /** Date only, Gregorian, rendered in Africa/Cairo. */
 export function formatDate(value: Date | string, options: FormatOptions = {}): string {
-  return new Intl.DateTimeFormat(options.locale ?? DEFAULT_NUMBER_LOCALE, {
-    timeZone: DISPLAY_TIME_ZONE,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(toDate(value));
+  return stripBidi(
+    new Intl.DateTimeFormat(options.locale ?? DEFAULT_NUMBER_LOCALE, {
+      timeZone: DISPLAY_TIME_ZONE,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(toDate(value)),
+  );
 }
 
-/** Date and time, Gregorian, rendered in Africa/Cairo. */
+/** Date and time, Gregorian, 24 hour clock, rendered in Africa/Cairo. */
 export function formatDateTime(value: Date | string, options: FormatOptions = {}): string {
-  return new Intl.DateTimeFormat(options.locale ?? DEFAULT_NUMBER_LOCALE, {
-    timeZone: DISPLAY_TIME_ZONE,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(toDate(value));
+  return stripBidi(
+    new Intl.DateTimeFormat(options.locale ?? DEFAULT_NUMBER_LOCALE, {
+      timeZone: DISPLAY_TIME_ZONE,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      // Arabic locales default to a 12 hour clock with ص/م. Invoices and
+      // statements use a 24 hour clock to stay unambiguous.
+      hourCycle: 'h23',
+    }).format(toDate(value)),
+  );
 }
 
 function toDate(value: Date | string): Date {

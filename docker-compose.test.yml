@@ -17,7 +17,11 @@ services:
     tmpfs:
       - /var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-salesflow} -d ${TEST_DATABASE_NAME:-salesflow_test}']
+      test:
+        [
+          'CMD-SHELL',
+          'pg_isready -U ${POSTGRES_USER:-salesflow} -d ${TEST_DATABASE_NAME:-salesflow_test}',
+        ]
       interval: 5s
       timeout: 5s
       retries: 20
