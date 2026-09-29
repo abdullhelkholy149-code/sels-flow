@@ -71,3 +71,78 @@ jobs:
 
       - name: Dependency audit
         run: npm audit --audit-level=high
+
+  # The acceptance criteria of phase 0 include a served Arabic page and a
+  # health endpoint that reports the database as up. Both are checked here, so a
+  # prerender or runtime regression fails the pipeline instead of the first
+  # person who opens the app.
+  serve:
+    name: Build and serve
+    runs-on: ubuntu-latest
+    needs: verify
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: salesflow
+          POSTGRES_PASSWORD: salesflow
+          POSTGRES_DB: salesflow
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U salesflow -d salesflow"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      DATABASE_URL: postgresql://salesflow:salesflow@localhost:5432/salesflow?schema=public
+      AUTH_SECRET: ci_auth_secret_that_is_at_least_32_chars_long
+      SIGNED_LINK_SECRET: ci_link_secret_that_is_at_least_32_chars_long
+      LOG_PRETTY: 'false'
+      WHATSAPP_PROVIDER: console
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Apply migrations
+        run: npm run db:setup
+
+      - name: Build
+        run: npm run build
+
+      - name: Start the production server
+        run: |
+          npm run start &
+          for _ in $(seq 1 40); do
+            if curl -fsS http://127.0.0.1:3000/api/health >/dev/null 2>&1; then
+              break
+            fi
+            sleep 3
+          done
+
+      - name: Health endpoint reports the database as up
+        run: |
+          curl -fsS http://127.0.0.1:3000/api/health | tee /tmp/health.json
+          grep -qE '"status": ?"ok"' /tmp/health.json
+          grep -qE '"database": ?"up"' /tmp/health.json
+
+      - name: The Arabic page is served right to left
+        run: |
+          curl -fsS http://127.0.0.1:3000/ar -o /tmp/ar.html
+          grep -q 'lang="ar"' /tmp/ar.html
+          grep -q 'dir="rtl"' /tmp/ar.html
+
+      - name: Security headers are present
+        run: |
+          curl -fsSI http://127.0.0.1:3000/ar | grep -qi '^x-content-type-options: nosniff'
+          curl -fsSI http://127.0.0.1:3000/ar | grep -qi '^x-frame-options: DENY'
