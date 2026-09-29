@@ -1,0 +1,9 @@
+# Keep line endings stable: the container and CI both run on Linux.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.ico binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
