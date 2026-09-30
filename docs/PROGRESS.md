@@ -188,8 +188,8 @@ PostgreSQL 16 حقيقي. لا شيء متبقٍ قبل المرحلة الأو�
 ## حالة المرحلة 1
 
 **منتهية، وخط الأنابيب أخضر على `main`:**
-[`36765650688`](https://github.com/abdullhelkholy149-code/sels-flow/actions/runs/36765650688)
-على `561e59a`. وظيفي `Typecheck, lint, unit tests` و`Build and serve` نجحا،
+[`36773838162`](https://github.com/abdullhelkholy149-code/sels-flow/actions/runs/36773838162)
+على `697f963`. وظيفي `Typecheck, lint, unit tests` و`Build and serve` نجحا،
 ومنهما تكامل الاختبارات على PostgreSQL 16 وتدقيق التبعيات وخطوات الخدمة الحقيقية.
 
 ### ما بُني
@@ -199,7 +199,7 @@ PostgreSQL 16 حقيقي. لا شيء متبقٍ قبل المرحلة الأو�
 - `src/server/auth/` — جلسات DB، قفل وحدود، تدقيق، `CSRF` مزدوج الإرسال.
 - `src/server/settings/` + شاشة الإعدادات.
 - تصدير CSV لمسجّلي المستخدمين والتدقيق، مع تحييد صيغ Excel.
-- 10 ملفات اختبار وحدة + 4 ملفات تكامل.
+- 10 ملفات اختبار وحدة + 5 ملفات تكامل.
 
 ### عيوب حقيقية كشفها خط الأنابيب
 
@@ -211,6 +211,15 @@ PostgreSQL 16 حقيقي. لا شيء متبقٍ قبل المرحلة الأو�
 | `audit_logs.ip` كان `null` في كل محاولة دخول فاشلة | `ip` و`userAgent` دُخلا كـ metadata بدل `context`، فمضى الفحص على تسجيل الدخول الناجح ولم يمسّ الفاشل |
 | `reason` كان `undefined` في نتيجة `rate_limited` | غطّاه `as LoginResult`، و`LockoutDecision` كان interface لا يضمن `reason` على فرع الرفض |
 | كوكي `CSRF` تُكتب أثناء الرسم |Next 15 يرمي استثناءً فتردّ صفحة الدخول 500. لا وحدة اختبار ولا تكامل يرسم صفحة، والبناء يمرّ |
+
+العيب الرابع كان ثغرة في الاختبارات نفسها: اختبارات الـ`CSRF` كانت تستدعي
+`verifyCsrfField` مباشرةً، فثبتّت المقارنة ولم تثبت شيئاً ممّا بعدها. الآن
+`csrf-action.test.ts` يشغّل الـserver actions نفسها على قاعدة حقيقية، ويقرّر
+أن الرفض لم يكتب شيئاً، وأن رمز جلسة أخرى حيّة أو رمز جلسة مُلغاة مرفوض.
+حين وُضع هذا الملف أول مرة فشل منه أربعة اختبارات، لا لأن فحص الـCSRF مرّ، بل
+لأن `company_settings` ليست ضمن جدول `TRUNCATE`: فكانت القيمة التي غيّرها
+الاختبار الأول هي ما يقارن به الباقي. اختبار يقول «لم يُكتب شيء» لا بد أن
+يقارن بالحالة التي أعدّها بنفسه.
 
 ### نتائج التحقق
 
@@ -236,8 +245,8 @@ PostgreSQL 16 حقيقي. لا شيء متبقٍ قبل المرحلة الأو�
 - [x] لا سر في المستودع
 - [x] `npm run test:int` أخضر على PostgreSQL 16
 - [x] خط الأنابيب أخضر على `main`
-- [ ] `admin/audit` يعرض أعمدة قابلة للترتيب كسائر شاشات القوائم
-- [ ] اختبار يمرّ عبر طلب فعلي لكل تعديل، لا فقط وحدات للـ `CSRF`
+- [x] `admin/audit` يعرض أعمدة قابلة للترتيب كسائر شاشات القوائم
+- [x] اختبار يمرّ عبر طلب فعلي لكل تعديل، لا فقط وحدات للـ `CSRF`
 
 ### الـ Commit
 
@@ -245,3 +254,4 @@ PostgreSQL 16 حقيقي. لا شيء متبقٍ قبل المرحلة الأو�
 - `fix: five defects found while reviewing the phase 1 integration run`
 - `fix: the ip and the lockout reason never reached the audit trail`
 - `fix: the login screen answered 500 because it set a cookie while rendering`
+- `close the two phase 1 gaps: the audit screen sorted nothing, and CSRF was only tested as a function`
