@@ -14,6 +14,10 @@ import { writeAudit } from '@/server/audit/service';
 import { getCompanySettings, updateCompanySettings } from '@/server/settings/service';
 
 async function resetSettings(): Promise<void> {
+  // The audit rows for this entity go too. The rollback test below asserts that
+  // nothing was recorded, and a row left behind by the previous test would make
+  // that count wrong for a reason that has nothing to do with the transaction.
+  await prisma.auditLog.deleteMany({ where: { entityType: 'CompanySettings' } });
   await prisma.companySettings.upsert({
     where: { id: 1 },
     create: {

@@ -15,11 +15,8 @@
 'use server';
 
 import { AuditAction, Role } from '@prisma/client';
-import { headers } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-
-import { getEnv } from '@/config/env';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import { checkPassword } from '@/lib/auth/password-policy';
 import { logger } from '@/lib/logger';
@@ -42,6 +39,7 @@ import { login } from '@/server/auth/service';
 import { assertPermission, loadActor, requirePhone, ValidationError } from '@/server/data/access';
 import type { Actor } from '@/server/data/access';
 import { isUniqueViolation, nextDocumentNumber } from '@/server/data/numbers';
+import { requestContext } from '@/server/http/request-context';
 
 // ---------------------------------------------------------------------------
 // Result shape
@@ -64,20 +62,6 @@ function flatten(error: z.ZodError): FormErrors {
     if (!errors[key]) errors[key] = issue.message;
   }
   return errors;
-}
-
-/**
- * IP and user agent for the audit trail.
- *
- * The forwarded header is only read when `TRUSTED_PROXY` is set: otherwise any
- * client could send `x-forwarded-for` and write a false ip into the audit log.
- */
-async function requestContext(): Promise<{ ip: string | null; userAgent: string | null }> {
-  const store = await headers();
-  const ip = getEnv().TRUSTED_PROXY
-    ? (store.get('x-forwarded-for')?.split(',')[0]?.trim() ?? null)
-    : null;
-  return { ip, userAgent: store.get('user-agent') };
 }
 
 const CSRF_MESSAGE = 'انتهت صلاحية الجلسة، حدّث الصفحة وحاول مرة أخرى';

@@ -8,6 +8,7 @@
 import { AuditAction, Role } from '@prisma/client';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 
+import { isValidEgyptianPhone } from '@/lib/auth/identifiers';
 import { hashPassword } from '@/lib/passwords';
 import { prisma } from '@/lib/prisma';
 import { login } from '@/server/auth/service';
@@ -33,11 +34,14 @@ afterAll(async () => {
 async function makeUser(
   overrides: { phone?: string; isActive?: boolean; lockedUntil?: Date | null } = {},
 ) {
+  const phone = overrides.phone ?? PHONE;
   return prisma.user.create({
     data: {
       role: Role.ADMIN,
-      phone: overrides.phone ?? PHONE,
-      username: 'tester',
+      phone,
+      // Both columns are unique, so a second account in the same test needs its
+      // own username as well as its own phone.
+      username: `tester${phone.slice(-4)}`,
       passwordHash: await hashPassword(PASSWORD),
       mustChangePassword: false,
       isActive: overrides.isActive ?? true,
@@ -105,10 +109,12 @@ describe('successful login', () => {
   });
 
   it('accepts the username as well as the phone', async () => {
-    await makeUser();
+    const user = await makeUser();
 
     const result = await login({
-      identifier: 'TESTER',
+      // Upper case on purpose: usernames are case folded, so the same account
+      // is found either way.
+      identifier: (user.username ?? '').toUpperCase(),
       password: PASSWORD,
       ip: null,
       userAgent: null,
@@ -263,30 +269,38 @@ describe('lockout after repeated failures', () => {
 });
 
 describe('per ip rate limit', () => {
+  /**
+   * The limits are evaluated from the `login_attempts` rows inside the window
+   * (decision D-012), so a test that wants to prove the per-ip rule has to keep
+   * the per-account count below its threshold on its own. Using a fresh unknown
+   * number per attempt does that: the failures are real and count against the
+   * ip, and no single account ever reaches the account threshold.
+   */
+  async function failFromIp(ip: string, times: number): Promise<void> {
+    for (let attempt = 1; attempt <= times; attempt += 1) {
+      // +20 then ten digits in a real mobile shape, so the identifier is
+      // normalised as a phone. An unknown phone still counts against the ip.
+      const identifier = `+201${String(500_000 + attempt).padStart(9, '0')}`;
+      expect(isValidEgyptianPhone(identifier)).toBe(true);
+
+      const result = await login({
+        identifier,
+        password: 'Wrong!Pass1',
+        ip,
+        userAgent: null,
+      });
+      // None of these may be refused early, or the count would not be the number
+      // of failures the assertion claims.
+      expect(result.status).toBe('invalid_credentials');
+    }
+  }
+
   it('blocks a clean account once the ip is over its limit', async () => {
     const user = await makeUser();
 
-    // The per account threshold (5) is lower than the per ip one (10), so the
-    // account lock would normally fire first. Unlock between attempts to prove
-    // the ip limit is a separate control that works on its own.
-    for (let attempt = 1; attempt <= 5; attempt += 1) {
-      await login({ identifier: PHONE, password: 'Wrong!Pass1', ip: IP, userAgent: null });
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { lockedUntil: null, failedLoginCount: 0 },
-      });
-    }
-
-    // Six more failures from the same ip, each on a fresh account so no
-    // per-account threshold can be what stops the next attempt.
-    for (let attempt = 1; attempt <= 5; attempt += 1) {
-      await login({
-        identifier: `+20100001000${attempt}`,
-        password: 'Wrong!Pass1',
-        ip: IP,
-        userAgent: null,
-      });
-    }
+    // The per ip threshold (10) is higher than the per account one (5), so the
+    // ip limit can only be reached by failing on many different accounts.
+    await failFromIp(IP, 10);
 
     const limited = await login({
       identifier: user.phone,
@@ -296,25 +310,28 @@ describe('per ip rate limit', () => {
     });
 
     expect(limited.status).toBe('rate_limited');
-    // The account itself was never locked: the ip is the reason.
+    // The reason has to be the ip, otherwise this test would also pass when the
+    // account limit is what stopped the attempt.
+    if (limited.status !== 'rate_limited') return;
+    expect(limited.reason).toBe('RATE_LIMITED_IP');
+
+    // The account itself was never locked and never accumulated a failure.
     const after = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
     expect(after.lockedUntil).toBeNull();
+    expect(after.failedLoginCount).toBe(0);
   });
 
   it('does not count failures from a different ip', async () => {
     const user = await makeUser();
 
-    for (let attempt = 1; attempt <= 8; attempt += 1) {
-      await login({ identifier: PHONE, password: 'Wrong!Pass1', ip: IP, userAgent: null });
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { lockedUntil: null, failedLoginCount: 0 },
-      });
-    }
+    // Eight failures from one ip, spread over many accounts so the account
+    // limit stays out of the way, and under the ip threshold of ten.
+    await failFromIp(IP, 8);
 
-    // A different ip is unaffected by the first ip's failures.
+    // A different ip is unaffected by the first ip's failures: the account is
+    // still clean and the second ip has no history.
     const result = await login({
-      identifier: PHONE,
+      identifier: user.phone,
       password: PASSWORD,
       ip: OTHER_IP,
       userAgent: null,

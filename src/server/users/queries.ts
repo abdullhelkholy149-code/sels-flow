@@ -1,4 +1,4 @@
-import { Role } from '@prisma/client';
+import { Role, type Prisma } from '@prisma/client';
 
 import { prisma } from '@/lib/prisma';
 import { paginate, safeOrderBy, type ListQuery, type Page } from '@/server/data/access';
@@ -11,8 +11,46 @@ import { paginate, safeOrderBy, type ListQuery, type Page } from '@/server/data/
  * `requirePermissionFor` before reaching it. The service still takes the actor
  * so a future non admin call site cannot quietly read the whole table.
  */
-const SORTABLE = ['name', 'phone', 'role', 'isActive', 'lastLoginAt', 'createdAt'] as const;
+const SORTABLE = ['phone', 'role', 'isActive', 'lastLoginAt', 'createdAt'] as const;
 type Sortable = (typeof SORTABLE)[number];
+
+/**
+ * The display name is not a column on `users`: it lives on the rep or the
+ * customer master record, with the username and then the phone as the fallback.
+ * Prisma cannot sort on that expression, so "name" is spelled as a chain of
+ * order clauses and `username` breaks the ties between rows that have no rep or
+ * customer name. Sorting on a column that does not exist would fail the query,
+ * so a screen must only declare real columns here.
+ */
+const NAME_ORDER: Prisma.UserOrderByWithRelationInput[] = [
+  { rep: { name: 'asc' } },
+  { customer: { name: 'asc' } },
+  { username: 'asc' },
+  { phone: 'asc' },
+];
+
+export function userOrderBy(sort: string | undefined, direction: 'asc' | 'desc' | undefined) {
+  const dir = direction === 'asc' ? 'asc' : 'desc';
+  if (sort === 'name') {
+    return NAME_ORDER.map((clause) => reverseOrder(clause, dir));
+  }
+  return safeOrderBy<Sortable>(SORTABLE, sort, direction, { createdAt: 'desc' });
+}
+
+/** Flips every sort key of an order clause, including the nested relation one. */
+function reverseOrder(
+  clause: Prisma.UserOrderByWithRelationInput,
+  dir: 'asc' | 'desc',
+): Prisma.UserOrderByWithRelationInput {
+  if ('rep' in clause && clause.rep) {
+    return { rep: { name: dir } };
+  }
+  if ('customer' in clause && clause.customer) {
+    return { customer: { name: dir } };
+  }
+  if ('username' in clause) return { username: dir };
+  return { phone: dir };
+}
 
 export interface UserRow {
   id: string;
@@ -29,9 +67,7 @@ export interface UserRow {
 
 export async function listUsers(query: ListQuery & { search?: string }): Promise<Page<UserRow>> {
   const search = query.search?.trim();
-  const orderBy = safeOrderBy<Sortable>(SORTABLE, query.sort, query.direction, {
-    createdAt: 'desc',
-  });
+  const orderBy = userOrderBy(query.sort, query.direction);
 
   const where = search
     ? {

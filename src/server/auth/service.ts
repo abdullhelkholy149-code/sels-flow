@@ -115,7 +115,11 @@ export async function login(input: LoginInput): Promise<LoginResult> {
   if (!decision.allowed) {
     await recordAttempt({ identifier, userId: user?.id ?? null, ip: input.ip, successful: false });
     if (user && decision.locksAccount) {
-      await lockUser(user.id, lockDuration(now), input);
+      await lockUser(user.id, lockDuration(now), {
+        role: user.role,
+        context: input,
+        metadata: { identifier },
+      });
     }
     await auditAuth(
       decision.reason === 'ACCOUNT_LOCKED' ? AuditAction.ACCOUNT_LOCKED : AuditAction.LOGIN_FAILED,
@@ -165,11 +169,12 @@ export async function login(input: LoginInput): Promise<LoginResult> {
       data: { failedLoginCount: { increment: 1 } },
     });
     if (decision.locksAccount) {
-      await lockUser(user.id, lockDuration(now), input);
-      await auditAuth(AuditAction.ACCOUNT_LOCKED, user.id, user.role, {
-        identifier,
-        ip: input.ip,
-        userAgent: input.userAgent,
+      // `lockUser` writes the lock and its single ACCOUNT_LOCKED audit row, so
+      // the log records one lock rather than one per call site that trips it.
+      await lockUser(user.id, lockDuration(now), {
+        role: user.role,
+        context: input,
+        metadata: { identifier },
       });
     }
     await auditAuth(AuditAction.LOGIN_FAILED, user.id, user.role, {
@@ -246,7 +251,11 @@ export function randomToken(bytes = 32): string {
   return Buffer.from(buffer).toString('base64url');
 }
 
-async function lockUser(userId: string, until: Date, context: AuditContext): Promise<void> {
+async function lockUser(
+  userId: string,
+  until: Date,
+  input: { role: Role; context: AuditContext; metadata: Record<string, unknown> },
+): Promise<void> {
   // The failure counter was already incremented by the caller, so this only has
   // to write the lock itself.
   await prisma.user.update({
@@ -256,9 +265,9 @@ async function lockUser(userId: string, until: Date, context: AuditContext): Pro
   await auditAuth(
     AuditAction.ACCOUNT_LOCKED,
     userId,
-    null,
-    { lockedUntil: until.toISOString() },
-    context,
+    input.role,
+    { ...input.metadata, lockedUntil: until.toISOString() },
+    input.context,
   );
 }
 

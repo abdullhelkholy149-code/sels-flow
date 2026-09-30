@@ -7,7 +7,11 @@ import { CsrfField, Field, FieldErrors, FormMessage, SubmitButton } from '@/comp
 import { updateCompanySettingsAction } from '@/server/settings/actions';
 import type { CompanySettings } from '@/server/settings/service';
 
-/** A checkbox posts its value only when ticked, so the flags carry a default. */
+/**
+ * An unchecked checkbox posts nothing at all, and the schema requires every
+ * flag, so the hidden input is what carries `false`. The checkbox follows it, so
+ * a ticked box is the later value and wins when the form is read.
+ */
 function Flag({
   name,
   label,
@@ -21,6 +25,7 @@ function Flag({
 }) {
   return (
     <label className="flex items-start gap-2.5">
+      <input type="hidden" name={name} value="false" />
       <input
         type="checkbox"
         name={name}

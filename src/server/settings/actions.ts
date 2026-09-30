@@ -18,6 +18,7 @@ import { diffRecords, writeAudit } from '@/server/audit/service';
 import type { ActionResult, FormErrors } from '@/server/auth/actions';
 import { assertFormCsrf, CSRF_FIELD, getSessionUser } from '@/server/auth/session';
 import { assertPermission, loadActor } from '@/server/data/access';
+import { requestContext } from '@/server/http/request-context';
 import { getCompanySettings, updateCompanySettings } from '@/server/settings/service';
 
 const CSRF_MESSAGE = 'انتهت صلاحية الجلسة، حدّث الصفحة وحاول مرة أخرى';
@@ -131,6 +132,7 @@ export async function updateCompanySettingsAction(
     return { ok: false, errors: flatten(parsed.error) };
   }
 
+  const context = await requestContext();
   await withTransaction(async (tx) => {
     // Read and write inside one transaction, so the audit diff describes the
     // values this statement actually replaced.
@@ -143,6 +145,10 @@ export async function updateCompanySettingsAction(
       entityId: '1',
       actorUserId: actor.userId,
       actorRole: actor.role,
+      // A settings change is exactly the kind of quiet edit the log exists for,
+      // so it carries who did it and from where, like every other action.
+      ip: context.ip,
+      userAgent: context.userAgent,
       before: change.before,
       after: change.after,
     });
