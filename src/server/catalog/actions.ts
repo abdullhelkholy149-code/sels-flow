@@ -93,7 +93,9 @@ function toDecimal(
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: rules.invalid });
     return z.NEVER;
   }
-  if (!parsed.isPositive()) {
+  // `Decimal(0).isPositive()` is true (zero carries a positive sign), so zero
+  // has to be excluded explicitly, or a zero price or pack size slips through.
+  if (!parsed.greaterThan(0)) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: rules.positive });
     return z.NEVER;
   }
