@@ -32,6 +32,8 @@ export default async function AppHomePage({ params }: PageProps) {
   const tDashboard = await getTranslations('dashboard');
 
   const tiles = [
+    { href: '/admin/products', label: t('products'), permission: PERMISSIONS.CATALOG_READ },
+    { href: '/admin/price-lists', label: t('priceLists'), permission: PERMISSIONS.PRICING_READ },
     { href: '/admin/users', label: t('users'), permission: PERMISSIONS.USERS_READ },
     { href: '/admin/audit', label: t('audit'), permission: PERMISSIONS.AUDIT_READ },
   ].filter((tile) => roleCan(actor.role, tile.permission));
@@ -50,7 +52,7 @@ export default async function AppHomePage({ params }: PageProps) {
           <h1 className="text-xl font-semibold text-ink">
             {tDashboard('welcome', { name: session.displayName })}
           </h1>
-          <p className="mt-1 text-sm text-ink-muted">{tDashboard('phaseOneBody')}</p>
+          <p className="mt-1 text-sm text-ink-muted">{tDashboard('catalogBody')}</p>
 
           {tiles.length > 0 ? (
             <div className="mt-6 grid gap-3 sm:grid-cols-2">

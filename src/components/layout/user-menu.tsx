@@ -37,6 +37,8 @@ export function UserMenu({ user }: { user: HeaderUser }) {
   const [open, setOpen] = useState(false);
 
   const items: NavItem[] = [
+    { href: '/admin/products', label: tNav('products'), permission: PERMISSIONS.CATALOG_READ },
+    { href: '/admin/price-lists', label: tNav('priceLists'), permission: PERMISSIONS.PRICING_READ },
     { href: '/admin/users', label: tNav('users'), permission: PERMISSIONS.USERS_READ },
     { href: '/admin/audit', label: tNav('audit'), permission: PERMISSIONS.AUDIT_READ },
     { href: '/admin/settings', label: tNav('settings'), permission: PERMISSIONS.SETTINGS_WRITE },

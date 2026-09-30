@@ -87,28 +87,28 @@ enum DocumentType {
 // ---------------------------------------------------------------------------
 
 model User {
-  id                  String    @id @default(uuid()) @db.Uuid
-  role                Role
-  username            String?   @unique
-  phone               String    @unique
-  email               String?   @unique
-  passwordHash        String    @map("password_hash")
-  mustChangePassword  Boolean   @default(true) @map("must_change_password")
-  isActive            Boolean   @default(true) @map("is_active")
-  lastLoginAt         DateTime? @map("last_login_at") @db.Timestamptz(6)
-  failedLoginCount    Int       @default(0) @map("failed_login_count")
-  lockedUntil         DateTime? @map("locked_until") @db.Timestamptz(6)
-  deletedAt           DateTime? @map("deleted_at") @db.Timestamptz(6)
-  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                 String    @id @default(uuid()) @db.Uuid
+  role               Role
+  username           String?   @unique
+  phone              String    @unique
+  email              String?   @unique
+  passwordHash       String    @map("password_hash")
+  mustChangePassword Boolean   @default(true) @map("must_change_password")
+  isActive           Boolean   @default(true) @map("is_active")
+  lastLoginAt        DateTime? @map("last_login_at") @db.Timestamptz(6)
+  failedLoginCount   Int       @default(0) @map("failed_login_count")
+  lockedUntil        DateTime? @map("locked_until") @db.Timestamptz(6)
+  deletedAt          DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  rep                 Rep?
-  customer            Customer?
+  rep      Rep?
+  customer Customer?
 
-  auditLogs           AuditLog[]  @relation("AuditActor")
-  sessions            UserSession[]
-  loginAttempts       LoginAttempt[]
-  passwordResets      PasswordReset[]
+  auditLogs            AuditLog[]      @relation("AuditActor")
+  sessions             UserSession[]
+  loginAttempts        LoginAttempt[]
+  passwordResets       PasswordReset[]
   issuedPasswordResets PasswordReset[] @relation("PasswordResetIssuer")
 
   @@index([role])
@@ -170,51 +170,52 @@ model LoginAttempt {
 // ---------------------------------------------------------------------------
 
 model PasswordReset {
-  id          String    @id @default(uuid()) @db.Uuid
-  userId      String    @map("user_id") @db.Uuid
-  issuedById  String?   @map("issued_by_id") @db.Uuid
-  temporary   Boolean   @default(true)
-  usedAt      DateTime? @map("used_at") @db.Timestamptz(6)
-  expiresAt   DateTime  @map("expires_at") @db.Timestamptz(6)
-  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  issuedById String?   @map("issued_by_id") @db.Uuid
+  temporary  Boolean   @default(true)
+  usedAt     DateTime? @map("used_at") @db.Timestamptz(6)
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz(6)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   user     User  @relation(fields: [userId], references: [id], onDelete: Cascade)
   issuedBy User? @relation("PasswordResetIssuer", fields: [issuedById], references: [id], onDelete: SetNull)
 
   @@index([userId, usedAt])
   @@map("password_resets")
-}// ---------------------------------------------------------------------------
+}
+// ---------------------------------------------------------------------------
 // Company settings - singleton row (id = 1) enforced by the service layer
 // ---------------------------------------------------------------------------
 
 model CompanySettings {
-  id                       Int      @id @default(1)
-  legalName                String   @map("legal_name")
-  taxRegistrationNumber    String?  @map("tax_registration_number")
-  branchCode               String?  @map("branch_code")
-  activityCode             String?  @map("activity_code")
-  address                  String?
-  phone                    String?
-  email                    String?
-  logoPath                 String?  @map("logo_path")
+  id                    Int     @id @default(1)
+  legalName             String  @map("legal_name")
+  taxRegistrationNumber String? @map("tax_registration_number")
+  branchCode            String? @map("branch_code")
+  activityCode          String? @map("activity_code")
+  address               String?
+  phone                 String?
+  email                 String?
+  logoPath              String? @map("logo_path")
 
   // Business defaults
-  defaultVatRate           Decimal  @default(14) @map("default_vat_rate") @db.Decimal(5, 2)
-  invoicePrefix            String   @default("INV") @map("invoice_prefix")
-  creditNotePrefix         String   @default("CN") @map("credit_note_prefix")
-  orderPrefix              String   @default("ORD") @map("order_prefix")
-  returnWindowDays         Int      @default(7) @map("return_window_days")
-  blockOnOverdue           Boolean  @default(true) @map("block_on_overdue")
-  overdueGraceDays         Int      @default(3) @map("overdue_grace_days")
-  geofenceRadiusM          Int      @default(200) @map("geofence_radius_m")
-  geofenceBlock            Boolean  @default(false) @map("geofence_block")
+  defaultVatRate            Decimal @default(14) @map("default_vat_rate") @db.Decimal(5, 2)
+  invoicePrefix             String  @default("INV") @map("invoice_prefix")
+  creditNotePrefix          String  @default("CN") @map("credit_note_prefix")
+  orderPrefix               String  @default("ORD") @map("order_prefix")
+  returnWindowDays          Int     @default(7) @map("return_window_days")
+  blockOnOverdue            Boolean @default(true) @map("block_on_overdue")
+  overdueGraceDays          Int     @default(3) @map("overdue_grace_days")
+  geofenceRadiusM           Int     @default(200) @map("geofence_radius_m")
+  geofenceBlock             Boolean @default(false) @map("geofence_block")
   defaultMaxDiscountPercent Decimal @default(10) @map("default_max_discount_percent") @db.Decimal(5, 2)
-  whatsappEnabled          Boolean  @default(false) @map("whatsapp_enabled")
-  defaultCreditDays        Int      @default(30) @map("default_credit_days")
+  whatsappEnabled           Boolean @default(false) @map("whatsapp_enabled")
+  defaultCreditDays         Int     @default(30) @map("default_credit_days")
 
-  createdAt                DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt                DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   @@map("company_settings")
 }
@@ -224,20 +225,20 @@ model CompanySettings {
 // ---------------------------------------------------------------------------
 
 model AuditLog {
-  id           String   @id @default(uuid()) @db.Uuid
-  actorUserId  String?  @map("actor_user_id") @db.Uuid
-  actorRole    Role?    @map("actor_role")
-  action       AuditAction
-  entityType   String   @map("entity_type")
-  entityId     String   @map("entity_id")
-  beforeJson   Json?    @map("before_json")
-  afterJson    Json?    @map("after_json")
-  metadata     Json?
-  ip           String?
-  userAgent    String?  @map("user_agent")
-  at           DateTime @default(now()) @db.Timestamptz(6)
+  id          String      @id @default(uuid()) @db.Uuid
+  actorUserId String?     @map("actor_user_id") @db.Uuid
+  actorRole   Role?       @map("actor_role")
+  action      AuditAction
+  entityType  String      @map("entity_type")
+  entityId    String      @map("entity_id")
+  beforeJson  Json?       @map("before_json")
+  afterJson   Json?       @map("after_json")
+  metadata    Json?
+  ip          String?
+  userAgent   String?     @map("user_agent")
+  at          DateTime    @default(now()) @db.Timestamptz(6)
 
-  actor        User?    @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  actor User? @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
 
   @@index([entityType, entityId])
   @@index([actorUserId, at])
@@ -252,12 +253,12 @@ model AuditLog {
 // ---------------------------------------------------------------------------
 
 model DocumentCounter {
-  id         String       @id @default(uuid()) @db.Uuid
-  docType    DocumentType @map("doc_type")
-  year       Int
-  lastValue  Int          @default(0) @map("last_value")
-  createdAt  DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt  DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id        String       @id @default(uuid()) @db.Uuid
+  docType   DocumentType @map("doc_type")
+  year      Int
+  lastValue Int          @default(0) @map("last_value")
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   @@unique([docType, year], name: "document_counters_type_year_key")
   @@index([docType])
@@ -271,19 +272,19 @@ model DocumentCounter {
 // ---------------------------------------------------------------------------
 
 model Rep {
-  id                    String    @id @default(uuid()) @db.Uuid
-  userId                String    @unique @map("user_id") @db.Uuid
-  code                  String    @unique
-  name                  String
-  phone                 String
-  maxDiscountPercent    Decimal   @default(10) @map("max_discount_percent") @db.Decimal(5, 2)
-  isActive              Boolean   @default(true) @map("is_active")
-  hiredAt               DateTime? @map("hired_at") @db.Date
-  deletedAt             DateTime? @map("deleted_at") @db.Timestamptz(6)
-  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                 String    @id @default(uuid()) @db.Uuid
+  userId             String    @unique @map("user_id") @db.Uuid
+  code               String    @unique
+  name               String
+  phone              String
+  maxDiscountPercent Decimal   @default(10) @map("max_discount_percent") @db.Decimal(5, 2)
+  isActive           Boolean   @default(true) @map("is_active")
+  hiredAt            DateTime? @map("hired_at") @db.Date
+  deletedAt          DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  user                  User      @relation(fields: [userId], references: [id], onDelete: Restrict)
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
 
   @@index([isActive])
   @@index([deletedAt])
@@ -291,16 +292,128 @@ model Rep {
 }
 
 model Customer {
-  id                String    @id @default(uuid()) @db.Uuid
-  userId            String?   @unique @map("user_id") @db.Uuid
-  code              String    @unique
-  name              String
-  deletedAt         DateTime? @map("deleted_at") @db.Timestamptz(6)
-  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String?   @unique @map("user_id") @db.Uuid
+  code      String    @unique
+  name      String
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  user              User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([deletedAt])
   @@map("customers")
+}
+
+// ---------------------------------------------------------------------------
+// Phase 2: catalog and pricing
+//
+// Prices are stored exclusive of VAT (Section 5.2) and the price list item is
+// valid on a range of *dates*, not timestamps: the effective price is "the item
+// valid on the order date", so a time component here would only introduce a way
+// for the same day to resolve two different prices (decision D-018).
+// ---------------------------------------------------------------------------
+
+model ProductCategory {
+  id        String    @id @default(uuid()) @db.Uuid
+  name      String    @unique
+  nameEn    String?   @map("name_en")
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  products Product[]
+
+  @@index([deletedAt])
+  @@map("product_categories")
+}
+
+model Unit {
+  id        String    @id @default(uuid()) @db.Uuid
+  name      String    @unique
+  nameEn    String?   @map("name_en")
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  products Product[]
+
+  @@index([deletedAt])
+  @@map("units")
+}
+
+model Product {
+  id         String    @id @default(uuid()) @db.Uuid
+  code       String    @unique
+  nameAr     String    @map("name_ar")
+  nameEn     String?   @map("name_en")
+  categoryId String    @map("category_id") @db.Uuid
+  unitId     String    @map("unit_id") @db.Uuid
+  // Optional: how many base units one pack contains.
+  packSize   Decimal?  @map("pack_size") @db.Decimal(14, 3)
+  vatRate    Decimal   @default(14) @map("vat_rate") @db.Decimal(5, 2)
+  costPrice  Decimal?  @map("cost_price") @db.Decimal(14, 2)
+  isActive   Boolean   @default(true) @map("is_active")
+  // Path only. The upload and virus-scan hook points arrive with the file
+  // handling phase; Phase 2 stores the reference and nothing else.
+  imagePath  String?   @map("image_path")
+  deletedAt  DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // E-invoice readiness only (Section 11). Structure now, values in Phase 12.
+  itemCodeType String? @map("item_code_type")
+  itemCode     String? @map("item_code")
+  etaUnitType  String? @map("eta_unit_type")
+
+  category   ProductCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  unit       Unit            @relation(fields: [unitId], references: [id], onDelete: Restrict)
+  priceItems PriceListItem[]
+
+  @@index([categoryId])
+  @@index([unitId])
+  @@index([isActive, deletedAt])
+  @@index([nameAr])
+  @@map("products")
+}
+
+model PriceList {
+  id        String    @id @default(uuid()) @db.Uuid
+  name      String    @unique
+  nameEn    String?   @map("name_en")
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  items PriceListItem[]
+
+  @@index([deletedAt])
+  @@map("price_lists")
+}
+
+model PriceListItem {
+  id          String    @id @default(uuid()) @db.Uuid
+  priceListId String    @map("price_list_id") @db.Uuid
+  productId   String    @map("product_id") @db.Uuid
+  // Exclusive of VAT, per Section 5.2.
+  price       Decimal   @db.Decimal(14, 2)
+  validFrom   DateTime  @map("valid_from") @db.Date
+  // null means "open ended".
+  validTo     DateTime? @map("valid_to") @db.Date
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  priceList PriceList @relation(fields: [priceListId], references: [id], onDelete: Cascade)
+  product   Product   @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  // One row per product per start date. Overlapping windows are rejected by the
+  // service (D-018) because a unique index cannot express "no overlap" and a
+  // silent tie would pick a price nobody chose. `map` names the index in the
+  // database; Prisma 6 ignores `name` here.
+  @@unique([priceListId, productId, validFrom], map: "price_list_items_unique_start")
+  // The resolver filters on these, so they are indexed as a pair.
+  @@index([priceListId, productId])
+  @@index([validFrom, validTo])
+  @@map("price_list_items")
 }
