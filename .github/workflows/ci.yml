@@ -68,27 +68,46 @@ jobs:
 
       - name: Integration tests
         run: |
+          # GitHub runs this block with `bash -e`, so errexit is turned off
+          # around the pipeline: the point is to inspect the output before the
+          # step exits, and `-e` would skip straight past that.
+          set +e
           set -o pipefail
           npm run test:int 2>&1 | tee /tmp/integration.log
           status=${PIPESTATUS[0]}
+          set -e
           # A red pipeline that only says "integration tests failed" costs a
           # round trip to the log before anyone learns which test broke. The
           # failing names go into the job summary and into annotations on this
           # step, so the reason is on the checks page and in the commit.
           if [ "$status" -ne 0 ]; then
             sed -i 's/\x1b\[[0-9;]*m//g' /tmp/integration.log
+            grep -E '(^|[[:space:]])(FAIL|×)|AssertionError|Error:' /tmp/integration.log \
+              > /tmp/integration.reasons || true
             {
               echo "## Integration tests failed"
               echo
               echo '```'
-              grep -nE '(^|[[:space:]])(FAIL|×)|AssertionError|Error:' /tmp/integration.log | head -40
+              if [ -s /tmp/integration.reasons ]; then
+                head -40 /tmp/integration.reasons
+              else
+                # A load or setup error prints no failing test name, so the tail
+                # of the log is the only evidence there is.
+                tail -40 /tmp/integration.log
+              fi
               echo '```'
             } >> "$GITHUB_STEP_SUMMARY"
-            grep -E '(^|[[:space:]])(FAIL|×)|AssertionError|Error:' /tmp/integration.log \
-              | head -10 \
-              | while IFS= read -r line; do
-                  printf '::error title=integration::%s\n' "$(printf '%s' "$line" | tr -d '\r' | cut -c1-180)"
-                done
+            if [ -s /tmp/integration.reasons ]; then
+              head -10 /tmp/integration.reasons | while IFS= read -r line; do
+                printf '::error title=integration::%s\n' \
+                  "$(printf '%s' "$line" | tr -d '\r' | cut -c1-180)"
+              done
+            else
+              tail -10 /tmp/integration.log | while IFS= read -r line; do
+                printf '::error title=integration::%s\n' \
+                  "$(printf '%s' "$line" | tr -d '\r' | cut -c1-180)"
+              done
+            fi
           fi
           exit "$status"
 
