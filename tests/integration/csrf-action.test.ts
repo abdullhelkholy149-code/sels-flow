@@ -55,6 +55,7 @@ async function truncateAll(): Promise<void> {
   await prisma.$executeRawUnsafe(
     'TRUNCATE TABLE audit_logs, login_attempts, password_resets, user_sessions, reps, customers, users RESTART IDENTITY CASCADE',
   );
+  await prisma.companySettings.deleteMany();
   cookieJar.clear();
   headerJar.clear();
   headerJar.set('user-agent', 'csrf-action-test');
@@ -97,7 +98,30 @@ async function seedAdmin(): Promise<void> {
   await prisma.companySettings.upsert({
     where: { id: 1 },
     create: { id: 1, legalName: SETTINGS.legalName, defaultVatRate: 14 },
-    update: {},
+    // The truncate above spares company_settings, so without this the previous
+    // test's value would still be sitting in the row and every "nothing was
+    // written" assertion would be comparing against the wrong baseline.
+    update: {
+      legalName: SETTINGS.legalName,
+      taxRegistrationNumber: null,
+      branchCode: null,
+      activityCode: null,
+      address: SETTINGS.address,
+      phone: SETTINGS.phone,
+      email: null,
+      defaultVatRate: 14,
+      invoicePrefix: 'INV',
+      creditNotePrefix: 'CN',
+      orderPrefix: 'ORD',
+      returnWindowDays: 7,
+      blockOnOverdue: true,
+      overdueGraceDays: 3,
+      geofenceRadiusM: 200,
+      geofenceBlock: false,
+      defaultMaxDiscountPercent: 10,
+      whatsappEnabled: false,
+      defaultCreditDays: 30,
+    },
   });
 }
 
@@ -191,7 +215,8 @@ describe('a signed in mutation', () => {
 
     const result = await updateCompanySettingsAction(
       null,
-      settingsForm('short', { legalName: 'x' }),
+      // A name the schema would accept, so the only reason to reject is the token.
+      settingsForm('short', { legalName: 'الاسم المزيف' }),
     );
 
     expect(result.ok).toBe(false);
