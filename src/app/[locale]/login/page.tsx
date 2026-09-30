@@ -5,14 +5,16 @@ import { SiteFooter } from '@/components/layout/site-footer';
 import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui/card';
 import { Container } from '@/components/ui/container';
 import { redirectIfSignedIn } from '@/server/auth/guard';
-import { ensureAnonymousCsrfCookie } from '@/server/auth/session';
 
 type PageProps = { params: Promise<{ locale: string }> };
 
 /**
- * Per request: the page seeds the anonymous CSRF cookie and redirects a visitor
- * who already has a session, so a prerendered copy would serve one visitor's
- * answer to everybody.
+ * Per request: the page redirects a visitor who already has a session, so a
+ * prerendered copy would serve one visitor's answer to everybody.
+ *
+ * The anonymous CSRF cookie is not seeded here. Next only allows a cookie to be
+ * set in a Server Action or a Route Handler, so a page render that tries throws
+ * and the login screen answers 500; the middleware seeds it instead.
  */
 export const dynamic = 'force-dynamic';
 
@@ -22,10 +24,6 @@ export default async function LoginPage({ params }: PageProps) {
 
   // An authenticated visitor never sees the login screen.
   await redirectIfSignedIn(locale);
-
-  // Seeds the anonymous CSRF pair. The cookie is set while the page renders and
-  // copied into the form, so a cross site post cannot fill the field.
-  await ensureAnonymousCsrfCookie();
 
   const t = await getTranslations('auth');
   const tApp = await getTranslations('app');

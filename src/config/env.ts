@@ -11,6 +11,8 @@
 import 'dotenv/config';
 import { z } from 'zod';
 
+import { CSRF_TTL_MINUTES_DEFAULT } from '@/lib/auth/cookies';
+
 /** Treats "true"/"1"/"yes" as true and "false"/"0"/"no" as false. */
 const booleanFromEnv = z.preprocess((value) => {
   if (typeof value === 'boolean') return value;
@@ -44,7 +46,7 @@ const envSchema = z
     LOGIN_LOCKOUT_MINUTES: z.coerce.number().int().min(1).max(1440).default(15),
     LOGIN_WINDOW_MINUTES: z.coerce.number().int().min(1).max(1440).default(15),
     SESSION_TTL_HOURS: z.coerce.number().int().min(1).max(8760).default(12),
-    CSRF_TTL_MINUTES: z.coerce.number().int().min(1).max(1440).default(12),
+    CSRF_TTL_MINUTES: z.coerce.number().int().min(1).max(1440).default(CSRF_TTL_MINUTES_DEFAULT),
     // Only trust x-forwarded-for behind a proxy that overwrites it, otherwise a
     // client can forge the ip written into the audit log.
     TRUSTED_PROXY: booleanFromEnv.default(false),

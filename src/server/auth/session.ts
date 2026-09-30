@@ -124,18 +124,11 @@ export async function getSessionUser(): Promise<SessionUser | null> {
 }
 
 /**
- * Anonymous CSRF token for the login and password screens.
- *
- * Before a session exists there is nothing to compare against, so the login
- * form gets its own signed-double-submit pair: the cookie is set when the page
- * renders, and the action requires the form field to match it. The value is
- * replaced on every successful sign-in by the session's own token.
+ * The CSRF cookie for the anonymous screens is seeded by the middleware: Next
+ * only allows a cookie to be written in a Server Action or a Route Handler, so
+ * a helper that a page render could call would throw at runtime rather than
+ * fail at build. Nothing else may set cookies during a render.
  */
-export async function ensureAnonymousCsrfCookie(): Promise<void> {
-  const store = await cookies();
-  if (store.get(CSRF_COOKIE)?.value) return;
-  setCsrfCookie(await cookies(), randomToken());
-}
 
 function setCsrfCookie(store: Awaited<ReturnType<typeof cookies>>, value: string): void {
   const env = getEnv();
