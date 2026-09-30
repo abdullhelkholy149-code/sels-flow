@@ -12,7 +12,13 @@ import { listAuditedEntityTypes, listAuditLog, type AuditRow } from '@/server/au
 
 type PageProps = {
   params: Promise<{ locale: string }>;
-  searchParams: Promise<{ page?: string; action?: string; entityType?: string }>;
+  searchParams: Promise<{
+    page?: string;
+    action?: string;
+    entityType?: string;
+    sort?: string;
+    direction?: string;
+  }>;
 };
 
 /** Per request: the list is the session's permission scope, not a static file. */
@@ -30,6 +36,11 @@ export default async function AuditPage({ params, searchParams }: PageProps) {
       page: query.page ? Number(query.page) : 1,
       action: isAuditAction(query.action) ? query.action : 'ALL',
       entityType: query.entityType,
+      // The query decides which of these is allowed; anything else falls back to
+      // newest first, so the link vocabulary and the SQL vocabulary cannot drift.
+      sort: query.sort,
+      direction:
+        query.direction === 'asc' ? 'asc' : query.direction === 'desc' ? 'desc' : undefined,
     }),
     listAuditedEntityTypes(),
   ]);
@@ -62,6 +73,13 @@ export default async function AuditPage({ params, searchParams }: PageProps) {
                   action={`/${locale}/admin/audit`}
                   method="get"
                 >
+                  {/* The filters are a new search, so they carry the current sort
+                      with them instead of silently dropping the reader back to
+                      newest first. */}
+                  {query.sort ? <input type="hidden" name="sort" value={query.sort} /> : null}
+                  {query.direction ? (
+                    <input type="hidden" name="direction" value={query.direction} />
+                  ) : null}
                   <select
                     name="action"
                     defaultValue={query.action ?? 'ALL'}
@@ -112,9 +130,19 @@ export default async function AuditPage({ params, searchParams }: PageProps) {
                   <table className="w-full min-w-[48rem] border-collapse text-sm">
                     <thead>
                       <tr className="border-b border-surface-border text-xs text-ink-subtle">
-                        <th className="p-2 text-start font-medium">{t('at')}</th>
-                        <th className="p-2 text-start font-medium">{t('action')}</th>
-                        <th className="p-2 text-start font-medium">{t('entity')}</th>
+                        <SortHeader field="at" label={t('at')} locale={locale} query={query} />
+                        <SortHeader
+                          field="action"
+                          label={t('action')}
+                          locale={locale}
+                          query={query}
+                        />
+                        <SortHeader
+                          field="entityType"
+                          label={t('entity')}
+                          locale={locale}
+                          query={query}
+                        />
                         <th className="p-2 text-start font-medium">{t('actor')}</th>
                         <th className="p-2 text-start font-medium">{t('ip')}</th>
                         <th className="p-2 text-start font-medium">{t('details')}</th>
@@ -203,6 +231,50 @@ function AuditRowView({ row, detailsLabel }: { row: AuditRow; detailsLabel: stri
   );
 }
 
+/**
+ * A header that links to the same list sorted by this column; clicking the
+ * active column flips the direction. Only `at`, `action` and `entityType` are
+ * ever emitted, because those are the only names `listAuditLog` accepts, so the
+ * vocabulary stays in one place instead of reaching Prisma from a query string.
+ */
+function SortHeader({
+  field,
+  label,
+  locale,
+  query,
+}: {
+  field: string;
+  label: string;
+  locale: string;
+  query: { sort?: string; direction?: string; action?: string; entityType?: string };
+}) {
+  const active = query.sort === field;
+  const direction = active && query.direction === 'asc' ? 'desc' : 'asc';
+  const params = new URLSearchParams();
+  params.set('sort', field);
+  params.set('direction', direction);
+  if (query.action) params.set('action', query.action);
+  if (query.entityType) params.set('entityType', query.entityType);
+
+  return (
+    // `aria-sort` belongs on the header cell, not on the link inside it.
+    <th
+      className="p-2 text-start font-medium"
+      aria-sort={active ? (direction === 'asc' ? 'ascending' : 'descending') : ('none' as const)}
+    >
+      <a
+        href={`/${locale}/admin/audit?${params.toString()}`}
+        className="inline-flex items-center gap-1 hover:text-ink"
+      >
+        {label}
+        <span aria-hidden="true" className="text-2xs">
+          {active ? (direction === 'asc' ? '▲' : '▼') : '↕'}
+        </span>
+      </a>
+    </th>
+  );
+}
+
 function buildAuditCsvHref(query: { action?: string; entityType?: string }): string {
   const params = new URLSearchParams();
   if (query.action) params.set('action', query.action);
@@ -218,11 +290,13 @@ function isAuditAction(value: string | undefined): value is AuditAction {
 function buildAuditHref(
   locale: string,
   page: number,
-  query: { action?: string; entityType?: string },
+  query: { action?: string; entityType?: string; sort?: string; direction?: string },
 ): string {
   const params = new URLSearchParams();
   params.set('page', String(page));
   if (query.action) params.set('action', query.action);
   if (query.entityType) params.set('entityType', query.entityType);
+  if (query.sort) params.set('sort', query.sort);
+  if (query.direction) params.set('direction', query.direction);
   return `/${locale}/admin/audit?${params.toString()}`;
 }
