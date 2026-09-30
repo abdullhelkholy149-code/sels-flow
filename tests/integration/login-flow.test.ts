@@ -102,7 +102,11 @@ describe('successful login', () => {
   it('accepts the phone in any accepted format', async () => {
     await makeUser();
 
-    for (const identifier of ['01000000010', '002010000000010', '201000000010', '+201000000010']) {
+    // Each of these is the same number written differently. `0020` is the
+    // international prefix without the plus, so it is `00` + the country code +
+    // the national number: 2 + 2 + 10 digits. One digit too many here does not
+    // normalize to the account, it is a different number.
+    for (const identifier of ['01000000010', '00201000000010', '201000000010', '+201000000010']) {
       const result = await login({ identifier, password: PASSWORD, ip: null, userAgent: null });
       expect(result.status).toBe('ok');
     }

@@ -125,12 +125,22 @@ export async function login(input: LoginInput): Promise<LoginResult> {
       decision.reason === 'ACCOUNT_LOCKED' ? AuditAction.ACCOUNT_LOCKED : AuditAction.LOGIN_FAILED,
       user?.id ?? null,
       user?.role ?? null,
-      { identifier, reason: decision.reason, ip: input.ip, userAgent: input.userAgent },
+      { identifier, reason: decision.reason },
+      input,
     );
+    // `reason` is what tells the caller whether the account or the address is
+    // over its limit, so it travels with the status rather than being cast away.
+    if (decision.reason === 'ACCOUNT_LOCKED') {
+      return {
+        status: 'locked',
+        retryAfterSeconds: decision.retryAfterSeconds ?? env.LOGIN_LOCKOUT_MINUTES * 60,
+      };
+    }
     return {
-      status: decision.reason === 'ACCOUNT_LOCKED' ? 'locked' : 'rate_limited',
+      status: 'rate_limited',
+      reason: decision.reason,
       retryAfterSeconds: decision.retryAfterSeconds ?? 60,
-    } as LoginResult;
+    };
   }
 
   if (!user) {
@@ -138,23 +148,25 @@ export async function login(input: LoginInput): Promise<LoginResult> {
       await recordAttempt({ identifier, userId: null, ip: input.ip, successful: false });
     }
     await verifyPassword(await dummyHash(), input.password);
-    await auditAuth(AuditAction.LOGIN_FAILED, null, null, {
-      identifier,
-      reason: 'unknown_account',
-      ip: input.ip,
-      userAgent: input.userAgent,
-    });
+    await auditAuth(
+      AuditAction.LOGIN_FAILED,
+      null,
+      null,
+      { identifier, reason: 'unknown_account' },
+      input,
+    );
     return { status: 'invalid_credentials', retryAfterSeconds: null };
   }
 
   if (user.deletedAt || !user.isActive) {
     await verifyPassword(await dummyHash(), input.password);
-    await auditAuth(AuditAction.LOGIN_FAILED, user.id, user.role, {
-      identifier,
-      reason: 'inactive_account',
-      ip: input.ip,
-      userAgent: input.userAgent,
-    });
+    await auditAuth(
+      AuditAction.LOGIN_FAILED,
+      user.id,
+      user.role,
+      { identifier, reason: 'inactive_account' },
+      input,
+    );
     return { status: 'inactive' };
   }
 
@@ -177,12 +189,13 @@ export async function login(input: LoginInput): Promise<LoginResult> {
         metadata: { identifier },
       });
     }
-    await auditAuth(AuditAction.LOGIN_FAILED, user.id, user.role, {
-      identifier,
-      reason: 'bad_password',
-      ip: input.ip,
-      userAgent: input.userAgent,
-    });
+    await auditAuth(
+      AuditAction.LOGIN_FAILED,
+      user.id,
+      user.role,
+      { identifier, reason: 'bad_password' },
+      input,
+    );
     return decision.locksAccount
       ? { status: 'locked', retryAfterSeconds: env.LOGIN_LOCKOUT_MINUTES * 60 }
       : { status: 'invalid_credentials', retryAfterSeconds: null };

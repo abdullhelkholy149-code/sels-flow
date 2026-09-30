@@ -20,14 +20,28 @@ export interface AttemptWindow {
   now: Date;
 }
 
-export interface LockoutDecision {
-  allowed: boolean;
-  reason: LockoutReason | null;
-  /** True when this failure is the one that trips the lock. */
-  locksAccount: boolean;
-  lockedUntil: Date | null;
-  retryAfterSeconds: number | null;
-}
+/**
+ * A refusal always carries the reason it refused, so the union makes
+ * `decision.reason` non-null on the refused branch. Typed as a plain interface
+ * it was only `LockoutReason | null` there, which let a caller build a
+ * `rate_limited` result without the reason and hide the gap behind a cast.
+ */
+export type LockoutDecision =
+  | {
+      allowed: true;
+      reason: null;
+      /** True when this failure is the one that trips the lock. */
+      locksAccount: boolean;
+      lockedUntil: Date | null;
+      retryAfterSeconds: null;
+    }
+  | {
+      allowed: false;
+      reason: LockoutReason;
+      locksAccount: false;
+      lockedUntil: Date | null;
+      retryAfterSeconds: number | null;
+    };
 
 export function windowStart(now: Date, minutes: number): Date {
   return new Date(now.getTime() - minutes * 60_000);
