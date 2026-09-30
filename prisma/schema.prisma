@@ -105,7 +105,11 @@ model User {
   rep                 Rep?
   customer            Customer?
 
-  auditLogs           AuditLog[] @relation("AuditActor")
+  auditLogs           AuditLog[]  @relation("AuditActor")
+  sessions            UserSession[]
+  loginAttempts       LoginAttempt[]
+  passwordResets      PasswordReset[]
+  issuedPasswordResets PasswordReset[] @relation("PasswordResetIssuer")
 
   @@index([role])
   @@index([isActive])
@@ -114,6 +118,73 @@ model User {
 }
 
 // ---------------------------------------------------------------------------
+// Sessions - the cookie only carries an opaque id; the truth lives here
+// (decision D-007). A suspended account therefore loses access immediately,
+// and admin revocation / logout leave a record.
+// ---------------------------------------------------------------------------
+
+model UserSession {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  csrfToken  String    @map("csrf_token")
+  ip         String?
+  userAgent  String?   @map("user_agent")
+  lastSeenAt DateTime  @default(now()) @map("last_seen_at") @db.Timestamptz(6)
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz(6)
+  revokedAt  DateTime? @map("revoked_at") @db.Timestamptz(6)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, revokedAt])
+  @@index([expiresAt])
+  @@map("user_sessions")
+}
+
+// ---------------------------------------------------------------------------
+// Login attempts - append only, like audit_logs, so it carries `at` instead of
+// created_at/updated_at. Backs the per-account and per-IP rate limits and the
+// lockout counter (decision D-009).
+// ---------------------------------------------------------------------------
+
+model LoginAttempt {
+  id         String   @id @default(uuid()) @db.Uuid
+  identifier String
+  userId     String?  @map("user_id") @db.Uuid
+  ip         String?
+  successful Boolean  @default(false)
+  at         DateTime @default(now()) @db.Timestamptz(6)
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([identifier, at])
+  @@index([ip, at])
+  @@index([at])
+  @@map("login_attempts")
+}
+
+// ---------------------------------------------------------------------------
+// Password resets - one row per admin reset, so the temporary password and its
+// delivery are auditable and a used token can never be replayed.
+// ---------------------------------------------------------------------------
+
+model PasswordReset {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  issuedById  String?   @map("issued_by_id") @db.Uuid
+  temporary   Boolean   @default(true)
+  usedAt      DateTime? @map("used_at") @db.Timestamptz(6)
+  expiresAt   DateTime  @map("expires_at") @db.Timestamptz(6)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user     User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  issuedBy User? @relation("PasswordResetIssuer", fields: [issuedById], references: [id], onDelete: SetNull)
+
+  @@index([userId, usedAt])
+  @@map("password_resets")
+}// ---------------------------------------------------------------------------
 // Company settings - singleton row (id = 1) enforced by the service layer
 // ---------------------------------------------------------------------------
 

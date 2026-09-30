@@ -3,6 +3,42 @@
     "name": "SalesFlow",
     "tagline": "Product distribution through sales representatives"
   },
+  "audit": {
+    "title": "Audit log",
+    "subtitle": "Every change made to the system data",
+    "action": "Action",
+    "entity": "Entity",
+    "actor": "By",
+    "at": "Time",
+    "ip": "IP address",
+    "details": "Details",
+    "filterAction": "All actions",
+    "filterEntity": "All entities",
+    "empty": "Nothing recorded yet",
+    "export": "Export CSV",
+    "pages": "Page {page} of {total}"
+  },
+  "auth": {
+    "loginTitle": "Sign in",
+    "loginSubtitle": "Use your mobile number or username",
+    "identifier": "Mobile number or username",
+    "identifierPlaceholder": "01000000000",
+    "password": "Password",
+    "signIn": "Sign in",
+    "signingIn": "Signing in...",
+    "mustChangeTitle": "Change your password",
+    "mustChangeSubtitle": "This is your first sign-in. Choose a new password to continue.",
+    "currentPassword": "Current password",
+    "newPassword": "New password",
+    "confirmPassword": "Confirm new password",
+    "changePassword": "Change password",
+    "changing": "Saving...",
+    "passwordHint": "At least 10 characters, mixing upper case, lower case, digits and a symbol.",
+    "signedInAs": "Signed in as",
+    "logout": "Sign out",
+    "changePasswordLink": "Change password",
+    "sessionExpired": "Your session expired, sign in again"
+  },
   "common": {
     "currency": "EGP",
     "loading": "Loading...",
@@ -15,12 +51,28 @@
     "status": "Status",
     "total": "Total",
     "yes": "Yes",
-    "no": "No"
+    "no": "No",
+    "exportCsv": "Export CSV"
   },
-  "nav": {
-    "home": "Home",
-    "language": "Language",
-    "phaseStatus": "Project status"
+  "dashboard": {
+    "title": "Dashboard",
+    "welcome": "Welcome, {name}",
+    "phaseOneBody": "Sign-in, permissions and the audit log are ready. Next: catalog and pricing."
+  },
+  "footer": {
+    "builtWith": "Internal platform for sales and distribution",
+    "version": "Version"
+  },
+  "forbidden": {
+    "title": "Not allowed",
+    "body": "Your account cannot open this screen. Ask an administrator if you need access."
+  },
+  "health": {
+    "title": "System health",
+    "ok": "All systems operational",
+    "degraded": "Running with problems",
+    "databaseUp": "Database reachable",
+    "databaseDown": "Database unreachable"
   },
   "home": {
     "title": "Welcome to SalesFlow",
@@ -32,16 +84,14 @@
     "docsTitle": "Documentation",
     "systemStatus": "System status"
   },
-  "health": {
-    "title": "System health",
-    "ok": "All systems operational",
-    "degraded": "Running with problems",
-    "databaseUp": "Database reachable",
-    "databaseDown": "Database unreachable"
-  },
-  "footer": {
-    "builtWith": "Internal platform for sales and distribution",
-    "version": "Version"
+  "nav": {
+    "home": "Home",
+    "language": "Language",
+    "phaseStatus": "Project status",
+    "users": "Users",
+    "audit": "Audit log",
+    "settings": "Company settings",
+    "logout": "Sign out"
   },
   "notFound": {
     "title": "Page not found",
@@ -49,5 +99,71 @@
   },
   "privacy": {
     "gpsNotice": "Location is recorded only on explicit actions such as visit check-in or delivery. There is no background tracking."
+  },
+  "roles": {
+    "ADMIN": "Administrator",
+    "REP": "Sales rep",
+    "CUSTOMER": "Customer",
+    "STOREKEEPER": "Storekeeper",
+    "ACCOUNTANT": "Accountant"
+  },
+  "settings": {
+    "title": "Company settings",
+    "subtitle": "Legal identity, document prefixes and the default rules",
+    "formTitle": "Company settings",
+    "identityTitle": "Legal identity",
+    "legalName": "Legal name",
+    "taxRegistrationNumber": "Tax registration number",
+    "branchCode": "Branch code",
+    "activityCode": "Activity code",
+    "address": "Address",
+    "phone": "Phone",
+    "email": "Email",
+    "documentsTitle": "Documents and pricing",
+    "invoicePrefix": "Invoice prefix",
+    "creditNotePrefix": "Credit note prefix",
+    "orderPrefix": "Order prefix",
+    "defaultVatRate": "Default VAT rate %",
+    "defaultMaxDiscountPercent": "Default max discount %",
+    "returnWindowDays": "Return window (days)",
+    "creditTitle": "Credit and collection",
+    "defaultCreditDays": "Default credit period (days)",
+    "overdueGraceDays": "Overdue grace (days)",
+    "blockOnOverdue": "Block orders when overdue",
+    "blockOnOverdueHint": "Stops a late customer from placing a new order",
+    "visitsTitle": "Visits and location",
+    "geofenceRadiusM": "Geofence radius (metres)",
+    "geofenceBlock": "Block visits outside the fence",
+    "geofenceBlockHint": "A visit cannot be recorded when the location is outside the radius",
+    "whatsappEnabled": "Enable WhatsApp notifications",
+    "save": "Save settings"
+  },
+  "users": {
+    "title": "Users and roles",
+    "subtitle": "Every account that can sign in, and its role",
+    "newUser": "New user",
+    "role": "Role",
+    "name": "Name",
+    "phone": "Mobile",
+    "username": "Username",
+    "status": "Status",
+    "lastLogin": "Last sign-in",
+    "never": "Never signed in",
+    "active": "Active",
+    "inactive": "Suspended",
+    "locked": "Locked",
+    "createTitle": "Add a user",
+    "resetPassword": "Reset password",
+    "suspend": "Suspend",
+    "reactivate": "Reactivate",
+    "temporaryPassword": "Temporary password",
+    "temporaryPasswordHint": "Hand it to the user; they must change it at first sign-in.",
+    "searchPlaceholder": "Search by name, mobile or username",
+    "empty": "No users",
+    "results": "{count} users",
+    "pages": "Page {page} of {total}",
+    "prev": "Previous",
+    "next": "Next",
+    "selfSuspend": "You cannot suspend your own account"
   }
 }

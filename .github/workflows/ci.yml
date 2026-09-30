@@ -146,3 +146,33 @@ jobs:
         run: |
           curl -fsSI http://127.0.0.1:3000/ar | grep -qi '^x-content-type-options: nosniff'
           curl -fsSI http://127.0.0.1:3000/ar | grep -qi '^x-frame-options: DENY'
+          curl -fsSI http://127.0.0.1:3000/ar | grep -qi '^content-security-policy:'
+          curl -fsSI http://127.0.0.1:3000/ar | grep -qi "frame-ancestors 'none'"
+
+      # Phase 1 acceptance: an unauthenticated visitor must not be able to
+      # reach a protected screen or a CSV export, and the login screen must
+      # hand out the anonymous CSRF cookie the action checks against.
+      - name: Protected screens redirect an anonymous visitor to the login screen
+        run: |
+          for path in /ar/app /ar/change-password /ar/admin/users /ar/admin/audit /ar/admin/settings; do
+            location=$(curl -fsSI "http://127.0.0.1:3000$path" | tr -d '\r' | grep -i '^location:' | head -1)
+            echo "$path -> $location"
+            echo "$location" | grep -q '/ar/login'
+          done
+
+      - name: The login screen issues the anonymous CSRF cookie
+        run: |
+          curl -fsS -c /tmp/jar http://127.0.0.1:3000/ar/login -o /tmp/login.html
+          grep -q 'sf_csrf' /tmp/jar
+          grep -q 'lang="ar"' /tmp/login.html
+
+      - name: The CSV exports refuse an anonymous caller
+        run: |
+          # The export must not become a way around the guard on the list it
+          # mirrors, so an unauthenticated request gets 401, never a CSV body.
+          for path in /api/admin/users.csv /api/admin/audit.csv; do
+            status=$(curl -s -o /tmp/export.out -w '%{http_code}' "http://127.0.0.1:3000$path")
+            echo "$path -> $status"
+            test "$status" = "401"
+            grep -qi 'unauthenticated' /tmp/export.out
+          done

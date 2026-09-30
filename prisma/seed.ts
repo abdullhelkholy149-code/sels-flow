@@ -35,17 +35,30 @@ async function main(): Promise<void> {
   });
 
   if (!existingAdmin) {
-    await prisma.user.create({
+    const admin = await prisma.user.create({
       data: {
         role: 'ADMIN',
         username: env.SEED_ADMIN_USERNAME,
         phone: env.SEED_ADMIN_PHONE,
         email: null,
         passwordHash: await hashPassword(env.SEED_ADMIN_PASSWORD),
+        // Phase 1: the seeded password is temporary, so the first sign-in is
+        // forced through the change password screen.
         mustChangePassword: true,
         isActive: true,
       },
     });
+
+    // Record the reset so the issued temporary password is auditable, exactly
+    // as an admin initiated reset would be.
+    await prisma.passwordReset.create({
+      data: {
+        userId: admin.id,
+        issuedById: null,
+        expiresAt: new Date(Date.now() + 7 * 86_400_000),
+      },
+    });
+
     process.stdout.write(`admin created (username=${env.SEED_ADMIN_USERNAME})\n`);
   } else {
     process.stdout.write('admin already exists, skipped\n');
@@ -56,6 +69,9 @@ async function main(): Promise<void> {
     prisma.companySettings.count(),
   ]);
   process.stdout.write(`seed done: users=${users} settings=${settings}\n`);
+  process.stdout.write(
+    `sign in at /ar/login with ${env.SEED_ADMIN_USERNAME} and ${env.SEED_ADMIN_PASSWORD}, then change the password\n`,
+  );
 }
 
 main()

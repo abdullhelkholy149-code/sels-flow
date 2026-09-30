@@ -42,6 +42,12 @@ const envSchema = z
     LOGIN_MAX_ATTEMPTS_PER_IP: z.coerce.number().int().min(1).max(1000).default(10),
     LOGIN_MAX_ATTEMPTS_PER_ACCOUNT: z.coerce.number().int().min(1).max(100).default(5),
     LOGIN_LOCKOUT_MINUTES: z.coerce.number().int().min(1).max(1440).default(15),
+    LOGIN_WINDOW_MINUTES: z.coerce.number().int().min(1).max(1440).default(15),
+    SESSION_TTL_HOURS: z.coerce.number().int().min(1).max(8760).default(12),
+    CSRF_TTL_MINUTES: z.coerce.number().int().min(1).max(1440).default(12),
+    // Only trust x-forwarded-for behind a proxy that overwrites it, otherwise a
+    // client can forge the ip written into the audit log.
+    TRUSTED_PROXY: booleanFromEnv.default(false),
 
     // uploads (Phase 8)
     UPLOAD_DIR: z.string().default('/data/uploads'),
@@ -148,4 +154,13 @@ export function getEnv(): Env {
 /** Throws immediately if the environment is unusable. */
 export function validateEnv(): Env {
   return getEnv();
+}
+
+/**
+ * Drops the memoized environment. Tests use it after changing `process.env`,
+ * so a value parsed earlier cannot leak into a later assertion. The running
+ * application never calls this.
+ */
+export function resetEnvForTests(): void {
+  cached = undefined;
 }

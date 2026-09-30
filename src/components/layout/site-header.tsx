@@ -1,10 +1,11 @@
 import { useTranslations } from 'next-intl';
 
 import { LocaleSwitcher } from '@/components/layout/locale-switcher';
+import { UserMenu, type HeaderUser } from '@/components/layout/user-menu';
 import { Container } from '@/components/ui/container';
 import { Link } from '@/i18n/navigation';
 
-export function SiteHeader() {
+export function SiteHeader({ user }: { user?: HeaderUser | null }) {
   const t = useTranslations('nav');
   const tApp = useTranslations('app');
 
@@ -25,7 +26,7 @@ export function SiteHeader() {
             </span>
           </Link>
 
-          <nav aria-label={t('home')} className="flex items-center gap-3">
+          <nav aria-label={t('home')} className="flex items-center gap-1">
             <Link
               href="/"
               className="rounded-md px-3 py-2 text-sm text-ink-muted hover:bg-surface-muted"
@@ -33,6 +34,7 @@ export function SiteHeader() {
               {t('home')}
             </Link>
             <LocaleSwitcher />
+            {user ? <UserMenu user={user} /> : null}
           </nav>
         </div>
       </Container>

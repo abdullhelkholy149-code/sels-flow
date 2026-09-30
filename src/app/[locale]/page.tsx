@@ -1,6 +1,7 @@
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
 import { routing } from '@/i18n/routing';
+import { getSessionUser } from '@/server/auth/session';
 
 import { SiteFooter } from '@/components/layout/site-footer';
 import { SiteHeader } from '@/components/layout/site-header';
@@ -23,13 +24,26 @@ export default async function HomePage({ params }: HomePageProps) {
   const { locale } = await params;
   setRequestLocale(locale);
 
+  // Read only here: the shell shows an account menu when a session exists. The
+  // page itself stays public, so a signed out visitor still sees the landing
+  // page and the health check.
+  const session = await getSessionUser();
+
   const t = await getTranslations('home');
   const tHealth = await getTranslations('health');
   const tPrivacy = await getTranslations('privacy');
 
+  const headerUser = session
+    ? {
+        displayName: session.displayName,
+        role: session.role,
+        mustChangePassword: session.mustChangePassword,
+      }
+    : null;
+
   return (
     <>
-      <SiteHeader />
+      <SiteHeader user={headerUser} />
 
       <main className="flex-1 py-10">
         <Container>

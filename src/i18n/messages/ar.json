@@ -3,6 +3,42 @@
     "name": "سالز فلو",
     "tagline": "نظام توزيع المنتجات عبر مناديب البيع"
   },
+  "audit": {
+    "title": "سجل التدقيق",
+    "subtitle": "كل عملية تمت على بيانات النظام",
+    "action": "العملية",
+    "entity": "العنصر",
+    "actor": "المنفذ",
+    "at": "الوقت",
+    "ip": "عنوان IP",
+    "details": "التفاصيل",
+    "filterAction": "كل العمليات",
+    "filterEntity": "كل العناصر",
+    "empty": "لا توجد عمليات مسجّلة",
+    "export": "تصدير CSV",
+    "pages": "صفحة {page} من {total}"
+  },
+  "auth": {
+    "loginTitle": "تسجيل الدخول",
+    "loginSubtitle": "ادخل برقم الموبايل أو اسم المستخدم",
+    "identifier": "رقم الموبايل أو اسم المستخدم",
+    "identifierPlaceholder": "01000000000",
+    "password": "كلمة المرور",
+    "signIn": "دخول",
+    "signingIn": "جارٍ الدخول...",
+    "mustChangeTitle": "يجب تغيير كلمة المرور",
+    "mustChangeSubtitle": "هذه أول مرة تسجل فيها الدخول. اختر كلمة مرور جديدة للمتابعة.",
+    "currentPassword": "كلمة المرور الحالية",
+    "newPassword": "كلمة المرور الجديدة",
+    "confirmPassword": "تأكيد كلمة المرور",
+    "changePassword": "تغيير كلمة المرور",
+    "changing": "جارٍ الحفظ...",
+    "passwordHint": "10 أحرف على الأقل، وتجمع بين أحرف كبيرة وصغيرة وأرقام ورمز.",
+    "signedInAs": "مسجل الدخول باسم",
+    "logout": "تسجيل الخروج",
+    "changePasswordLink": "تغيير كلمة المرور",
+    "sessionExpired": "انتهت صلاحية الجلسة، سجّل الدخول من جديد"
+  },
   "common": {
     "currency": "ج.م",
     "loading": "جارٍ التحميل...",
@@ -15,12 +51,28 @@
     "status": "الحالة",
     "total": "الإجمالي",
     "yes": "نعم",
-    "no": "لا"
+    "no": "لا",
+    "exportCsv": "تصدير CSV"
   },
-  "nav": {
-    "home": "الرئيسية",
-    "language": "اللغة",
-    "phaseStatus": "حالة المشروع"
+  "dashboard": {
+    "title": "لوحة التحكم",
+    "welcome": "أهلاً {name}",
+    "phaseOneBody": "تسجيل الدخول والصلاحيات وسجل التدقيق جاهزة. المرحلة التالية: الكتالوج والتسعير."
+  },
+  "footer": {
+    "builtWith": "منصة داخلية لإدارة المبيعات والتوزيع",
+    "version": "الإصدار"
+  },
+  "forbidden": {
+    "title": "غير مصرح لك",
+    "body": "حسابك لا يملك صلاحية الوصول لهذه الشاشة. لو تحتاج الوصول تواصل مع مدير النظام."
+  },
+  "health": {
+    "title": "حالة النظام",
+    "ok": "النظام يعمل بشكل طبيعي",
+    "degraded": "النظام يعمل مع مشاكل",
+    "databaseUp": "قاعدة البيانات متاحة",
+    "databaseDown": "قاعدة البيانات غير متاحة"
   },
   "home": {
     "title": "أهلاً بك في سالز فلو",
@@ -32,16 +84,14 @@
     "docsTitle": "التوثيق",
     "systemStatus": "حالة النظام"
   },
-  "health": {
-    "title": "حالة النظام",
-    "ok": "النظام يعمل بشكل طبيعي",
-    "degraded": "النظام يعمل مع مشاكل",
-    "databaseUp": "قاعدة البيانات متاحة",
-    "databaseDown": "قاعدة البيانات غير متاحة"
-  },
-  "footer": {
-    "builtWith": "منصة داخلية لإدارة المبيعات والتوزيع",
-    "version": "الإصدار"
+  "nav": {
+    "home": "الرئيسية",
+    "language": "اللغة",
+    "phaseStatus": "حالة المشروع",
+    "users": "المستخدمون",
+    "audit": "سجل التدقيق",
+    "settings": "إعدادات الشركة",
+    "logout": "تسجيل الخروج"
   },
   "notFound": {
     "title": "الصفحة غير موجودة",
@@ -49,5 +99,71 @@
   },
   "privacy": {
     "gpsNotice": "يتم تسجيل الموقع فقط عند إجراءات صريحة مثل تسجيل الزيارة أو التسليم. لا يوجد تتبع خلفي."
+  },
+  "roles": {
+    "ADMIN": "مدير",
+    "REP": "مندوب",
+    "CUSTOMER": "عميل",
+    "STOREKEEPER": "أمين مخزن",
+    "ACCOUNTANT": "محاسب"
+  },
+  "settings": {
+    "title": "إعدادات الشركة",
+    "subtitle": "البيانات القانونية وبادئات المستندات والقواعد الافتراضية",
+    "formTitle": "إعدادات الشركة",
+    "identityTitle": "البيانات القانونية",
+    "legalName": "الاسم القانوني",
+    "taxRegistrationNumber": "رقم التسجيل الضريبي",
+    "branchCode": "كود الفرع",
+    "activityCode": "كود النشاط",
+    "address": "العنوان",
+    "phone": "الهاتف",
+    "email": "البريد الإلكتروني",
+    "documentsTitle": "المستندات والتسعير",
+    "invoicePrefix": "بادئة الفاتورة",
+    "creditNotePrefix": "بادئة الإشعار الدائن",
+    "orderPrefix": "بادئة الطلب",
+    "defaultVatRate": "نسبة الضريبة الافتراضية %",
+    "defaultMaxDiscountPercent": "أقصى خصم افتراضي %",
+    "returnWindowDays": "مدة الاسترجاع (يوم)",
+    "creditTitle": "الآجل والتحصيل",
+    "defaultCreditDays": "مدة الآجل الافتراضية (يوم)",
+    "overdueGraceDays": "مهلة التأخير (يوم)",
+    "blockOnOverdue": "منع الطلب عند تجاوز المدة",
+    "blockOnOverdueHint": "يمنع العميل المتأخر من إنشاء طلب جديد",
+    "visitsTitle": "الزيارات والموقع",
+    "geofenceRadiusM": "نطاق الموقع (متر)",
+    "geofenceBlock": "منع الزيارة خارج النطاق",
+    "geofenceBlockHint": "يمنع تسجيل الزيارة إذا كان الموقع خارج النطاق",
+    "whatsappEnabled": "تفعيل إشعارات واتساب",
+    "save": "حفظ الإعدادات"
+  },
+  "users": {
+    "title": "المستخدمون والأدوار",
+    "subtitle": "كل حسابات الدخول إلى النظام وأدوارها",
+    "newUser": "مستخدم جديد",
+    "role": "الدور",
+    "name": "الاسم",
+    "phone": "رقم الموبايل",
+    "username": "اسم المستخدم",
+    "status": "الحالة",
+    "lastLogin": "آخر دخول",
+    "never": "لم يسجل الدخول",
+    "active": "نشط",
+    "inactive": "موقوف",
+    "locked": "مقفل",
+    "createTitle": "إضافة مستخدم",
+    "resetPassword": "إعادة تعيين كلمة المرور",
+    "suspend": "إيقاف",
+    "reactivate": "تفعيل",
+    "temporaryPassword": "كلمة المرور المؤقتة",
+    "temporaryPasswordHint": "سلّمها للمستخدم، ويجب عليه تغييرها عند أول دخول.",
+    "searchPlaceholder": "ابحث بالاسم أو الموبايل أو اسم المستخدم",
+    "empty": "لا يوجد مستخدمون",
+    "results": "{count} مستخدم",
+    "pages": "صفحة {page} من {total}",
+    "prev": "السابق",
+    "next": "التالي",
+    "selfSuspend": "لا يمكنك إيقاف حسابك الحالي"
   }
 }

@@ -2,7 +2,7 @@
 
 export const CURRENCY = 'EGP';
 
-/** Arabic (Egypt) with Western digits and Gregorian calendar, per decision D-008. */
+/** Arabic (Egypt) with Western digits and Gregorian calendar, per decision D-008 (locale and digits). */
 export const DEFAULT_NUMBER_LOCALE = 'ar-EG-u-nu-latn-ca-gregory';
 
 export const DISPLAY_TIME_ZONE = 'Africa/Cairo';
