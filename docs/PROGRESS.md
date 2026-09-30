@@ -183,14 +183,14 @@ PostgreSQL 16 حقيقي. لا شيء متبقٍ قبل المرحلة الأو�
 | D-014 | رمز CSRF في حقل مخفي لا ترويسة | ترويسة `x-csrf-token` | نموذج HTML يرسل الحقل تلقائياً بلا كود عميل، فيغطي التصفح بلا JavaScript أيضاً |
 | D-015 | لا يُقرأ `x-forwarded-for` إلا مع `TRUSTED_PROXY` | قراءته دائماً | عميل يستطيع انتحال عنوان IP يكتب في سجل التدقيق |
 | D-016 | كل صفحة محمية `force-dynamic` صريح | الاعتماد على كشف Next.js لـ `cookies()` | لو عُلبت الصفحة يوماً، تُثبَّت نتيجة وقت البناء وتُقدَّم لكل زائر |
+| D-017 | كوكي `CSRF` المجهول تُكتب في الـ middleware | `cookies().set()` أثناء رسم الصفحة | Next 15 يمنعها ويرمي استثناءً، فيردّ نموذج الدخول 500. تُكتب فقط لمن لا يملك كوكي جلسة |
 
 ## حالة المرحلة 1
 
-**منتهية، بانتظار خط الأنابيب كدليل نهائي على PostgreSQL حقيقي.**
-
-كل ما لا يحتاج قاعدة بيانات تحقّق محلياً: الأنواع والفحص والتنسيق ووحدات
-(117/117) والبناء. ما لم يُشغَّل بعد هو `npm run test:int` على PostgreSQL 16،
-لأن الجهاز لا يحمل Docker.
+**منتهية، وخط الأنابيب أخضر على `main`:**
+[`36765650688`](https://github.com/abdullhelkholy149-code/sels-flow/actions/runs/36765650688)
+على `561e59a`. وظيفي `Typecheck, lint, unit tests` و`Build and serve` نجحا،
+ومنهما تكامل الاختبارات على PostgreSQL 16 وتدقيق التبعيات وخطوات الخدمة الحقيقية.
 
 ### ما بُني
 
@@ -199,7 +199,18 @@ PostgreSQL 16 حقيقي. لا شيء متبقٍ قبل المرحلة الأو�
 - `src/server/auth/` — جلسات DB، قفل وحدود، تدقيق، `CSRF` مزدوج الإرسال.
 - `src/server/settings/` + شاشة الإعدادات.
 - تصدير CSV لمسجّلي المستخدمين والتدقيق، مع تحييد صيغ Excel.
-- 9 ملفات اختبار وحدة + 3 ملفات تكامل.
+- 10 ملفات اختبار وحدة + 4 ملفات تكامل.
+
+### عيوب حقيقية كشفها خط الأنابيب
+
+الوحدات والتكامل كانا أخضرين بينما ثلاث شاشات كانت معطوبة. كل واحد منهم لم
+يكن ليُرى إلا من اختبار يمرّ عبر طلب HTTP فعلي:
+
+| العيب | لماذا نجا |
+|---|---|
+| `audit_logs.ip` كان `null` في كل محاولة دخول فاشلة | `ip` و`userAgent` دُخلا كـ metadata بدل `context`، فمضى الفحص على تسجيل الدخول الناجح ولم يمسّ الفاشل |
+| `reason` كان `undefined` في نتيجة `rate_limited` | غطّاه `as LoginResult`، و`LockoutDecision` كان interface لا يضمن `reason` على فرع الرفض |
+| كوكي `CSRF` تُكتب أثناء الرسم |Next 15 يرمي استثناءً فتردّ صفحة الدخول 500. لا وحدة اختبار ولا تكامل يرسم صفحة، والبناء يمرّ |
 
 ### نتائج التحقق
 
@@ -208,10 +219,11 @@ PostgreSQL 16 حقيقي. لا شيء متبقٍ قبل المرحلة الأو�
 | `npm run typecheck` | نظيف |
 | `npm run lint` | نظيف، صفر تحذير |
 | `npm run format:check` | نظيف |
-| `npm run test` | 117/117 ناجحة |
+| `npm run test` | 123/123 ناجحة |
 | `npm run build` | ناجح، 14 مساراً + 3 مسارات API |
-| `npm run test:int` | ⏳ معلّق: لا PostgreSQL محلي |
-| `npm audit --audit-level=high` | ⏳ يحدّثه خط الأنابيب |
+| `npm run test:int` | ✅ ناجح على PostgreSQL 16 في CI |
+| `npm audit --audit-level=high` | ✅ ناجح في CI |
+| فحص `/ar/login` بعد البناء | ✅ 200، كوكي `sf_csrf`، `lang="ar"` و`dir="rtl"` |
 
 ### معيار القبول
 
@@ -222,9 +234,14 @@ PostgreSQL 16 حقيقي. لا شيء متبقٍ قبل المرحلة الأو�
 - [x] `npm run typecheck` و`lint` و`format:check` و`test` أخضر
 - [x] `npm run build` ناجح
 - [x] لا سر في المستودع
-- [ ] `npm run test:int` أخضر على PostgreSQL 16
-- [ ] خط الأنابيب أخضر على `main`
+- [x] `npm run test:int` أخضر على PostgreSQL 16
+- [x] خط الأنابيب أخضر على `main`
+- [ ] `admin/audit` يعرض أعمدة قابلة للترتيب كسائر شاشات القوائم
+- [ ] اختبار يمرّ عبر طلب فعلي لكل تعديل، لا فقط وحدات للـ `CSRF`
 
 ### الـ Commit
 
 - `phase-1: sessions, rbac, login throttling, audit trail and company settings`
+- `fix: five defects found while reviewing the phase 1 integration run`
+- `fix: the ip and the lockout reason never reached the audit trail`
+- `fix: the login screen answered 500 because it set a cookie while rendering`
