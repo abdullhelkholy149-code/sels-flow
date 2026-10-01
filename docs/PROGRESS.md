@@ -12,7 +12,7 @@
 | 0 Bootstrap | **منتهية ومتحقَّقة** | صفحة عربية RTL + اختبارات خضراء | ✅ خط الأنابيب على PostgreSQL |
 | 1 Auth/RBAC | **منتهية ومتحقَّقة** | اختبارات النطاق تنجح، ومحاولات الدخول الفاشلة محدودة ومسجّلة | ✅ خط الأنابيب أخضر على PostgreSQL 16 |
 | 2 الكتالوج والتسعير | **منتهية ومتحقَّقة** | دقة حلّ السعر بالتاريخ مُختبَرة، وCRUD في الإدارة يعمل | ✅ خط الأنابيب أخضر على PostgreSQL 16 (`36792925076`) |
-| 3 المناديب والعملاء | **منتهية، و CI أخضر على `main`** | مندوب يرى عملاءه فقط + إجبار تغيير كلمة المرور أول مرة | ✅ خط الأنابيب أخضر على PostgreSQL 16 (`36891495574`) |
+| 3 المناديب والعملاء | **منتهية، و CI أخضر على `main`** | مندوب يرى عملاءه فقط + إجبار تغيير كلمة المرور أول مرة | ✅ خط الأنابيب أخضر على PostgreSQL 16 (`36896357298`) |
 | 4 المخازن والعهدة | لم تبدأ | — | — |
 | 5 الطلبيات | لم تبدأ | — | — |
 | 6 الفواتير والمال | لم تبدأ | — | — |
@@ -431,8 +431,8 @@ balance into the ledger»، لذا يُنشأ `customer_ledger_entries` الآن
 
 **منتهية، و CI أخضر على `main`:**
 المعاملات الوحيدة التي تحتاج PostgreSQL (`db:deploy` و`test:int`) لا تعمل على جهاز
-التطوير، فكان التحقق الفعلي هو CI على PostgreSQL 16، وقد نجح (تشغيل `36891495574`):
-الترحيل طُبِّق، و**157 اختبار تكامل** نجحت في 8 ملفات (منها 38 في
+التطوير، فكان التحقق الفعلي هو CI على PostgreSQL 16، وقد نجح (تشغيل `36896357298`):
+الترحيل طُبِّق، و**165 اختبار تكامل** نجحت في 8 ملفات (منها 39 في
 `customers.test.ts`)، ووحدة الاختبارات 189.
 
 **ما بُني**
@@ -449,11 +449,12 @@ balance into the ledger»، لذا يُنشأ `customer_ledger_entries` الآن
   + CSRF + صلاحية).
 - `src/server/reps/`: `queries.ts`، `service.ts` (إنشاء مندوب مع حسابه، تعديل،
   تفعيل/إيقاف مع تعليق الحساب وإبطال الجلسات، حذف ناعم)، `actions.ts`.
-- `src/server/data/access.ts`: `customerScope` صار يستند إلى صف الإسناد المفتوح.
+- `src/server/data/access.ts`: `customerScope` صار يستند إلى صف الإسناد المفتوح؛ وعند تحميل الممثل (`loadActor`) يُسقط رابط المندوب إن كان محذوفاً أو موقوفاً.
+- `src/server/customers/service.ts`: تعديل العميل يزامن رقم الهاتف مع حساب الدخول؛ تعديل بلا هاتف مرفوض (D-024).
+- `src/server/reps/service.ts`: تعديل المندوب يزامن `phone` و`username` على الحساب، وحذف المندوب يوقف الحساب ويبطل الجلسات.
 - الشاشات: `/admin/reps`, `/admin/customers`, `/admin/customers/[id]`,
-  `/app/customers`, `/app/customers/[id]`, `/portal`.
-- الاختبارات: `tests/unit/customers/rules.test.ts`، و
-  `tests/integration/customers.test.ts`، وتحديث `tests/integration/scoping.test.ts`
+  `/app/customers`, `/app/customers/[id]`, `/portal`. نموذج تعديل المندوب داخل `/admin/reps`.
+- الاختبارات: `tests/unit/customers/rules.test.ts`، و`tests/integration/customers.test.ts`، وتحديث `tests/integration/scoping.test.ts`
   ليُنشئ إسنادات (وإلا لكانت كل اختبارات النطاق تنجح لسبب خاطئ: قائمة فارغة).
 
 **نتائج الفحص على الجهاز**
@@ -466,7 +467,8 @@ balance into the ledger»، لذا يُنشأ `customer_ledger_entries` الآن
 | `npm run test:unit` | **189/189** في 13 ملفاً (كانت 167 في 12) |
 | `npm run build` | نجح، كل المسارات الستة الجديدة تُبنى لـar/en |
 | `npm run db:validate` | نجح (بـ`DATABASE_URL` وهمي) |
-| `npm run db:deploy` + `test:int` | **لم يُشغَّل محلياً**: لا PostgreSQL على جهاز التطوير |
+| `npm run db:deploy` | **أخضر في CI** على PostgreSQL 16: طُبِّق ترحيل المرحلة 3 بلا تعديل |
+| `npm run test:int` | **أخضر في CI**: 165 اختباراً في 8 ملفات (تشغيل `36896357298`) |
 
 **نقطة تحتاج قراراً**: خريطة الصلاحيات (المرحلة 1، D-013) تمنح `CUSTOMER_TERMS`
 أي `customers:credit_terms` للمندوب، بينما قسم 6.3 في المواصفة يضع «حدود الائتمان»
