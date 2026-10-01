@@ -30,10 +30,29 @@ export default async function AppHomePage({ params }: PageProps) {
   const { session, actor } = await requireSession(locale);
   const t = await getTranslations('nav');
   const tDashboard = await getTranslations('dashboard');
+  const tCustomers = await getTranslations('customers');
+
+  // The first tile is the one that differs by role, and the difference is the
+  // record behind the login: a customer has no admin screen to be sent to, and a
+  // rep's own book is the first thing he opens. Everyone else gets the office
+  // tiles, which the permission filter below drops on its own.
+  const firstTile = actor.customerId
+    ? { href: '/portal', label: t('myAccount'), permission: PERMISSIONS.CUSTOMERS_READ_OWN }
+    : roleCan(actor.role, PERMISSIONS.CUSTOMERS_READ_OWN)
+      ? {
+          href: '/app/customers',
+          label: roleCan(actor.role, PERMISSIONS.CUSTOMERS_READ_ALL)
+            ? t('customers')
+            : tCustomers('myCustomers'),
+          permission: PERMISSIONS.CUSTOMERS_READ_OWN,
+        }
+      : null;
 
   const tiles = [
+    ...(firstTile ? [firstTile] : []),
     { href: '/admin/products', label: t('products'), permission: PERMISSIONS.CATALOG_READ },
     { href: '/admin/price-lists', label: t('priceLists'), permission: PERMISSIONS.PRICING_READ },
+    { href: '/admin/reps', label: t('reps'), permission: PERMISSIONS.REPS_READ_ALL },
     { href: '/admin/users', label: t('users'), permission: PERMISSIONS.USERS_READ },
     { href: '/admin/audit', label: t('audit'), permission: PERMISSIONS.AUDIT_READ },
   ].filter((tile) => roleCan(actor.role, tile.permission));

@@ -37,9 +37,11 @@ const TABLES: Array<{ table: string; order: number }> = [
   { table: 'login_attempts', order: 2 },
   { table: 'password_resets', order: 3 },
   { table: 'user_sessions', order: 4 },
-  { table: 'reps', order: 5 },
-  { table: 'customers', order: 6 },
-  { table: 'users', order: 7 },
+  { table: 'customer_ledger_entries', order: 5 },
+  { table: 'customer_rep_assignments', order: 6 },
+  { table: 'reps', order: 7 },
+  { table: 'customers', order: 8 },
+  { table: 'users', order: 9 },
 ];
 
 async function truncateAll(): Promise<void> {
@@ -96,6 +98,27 @@ async function seedFixture(): Promise<Fixture> {
   });
   const customerOfRepTwo = await prisma.customer.create({
     data: { code: 'C-0002', name: 'عميل المندوب الثاني', userId: null },
+  });
+
+  // Phase 3 replaced the placeholder scope with the assignment table, so the
+  // fixture has to say who owns whom - otherwise a rep's scope matches nothing
+  // and every test below would pass for the wrong reason (an empty result set
+  // proves nothing when the fixture has no rows to leak).
+  await prisma.customerRepAssignment.create({
+    data: {
+      fromDate: new Date(),
+      customerId: customerOfRepOne.id,
+      repId: repOne.id,
+      openCustomerId: customerOfRepOne.id,
+    },
+  });
+  await prisma.customerRepAssignment.create({
+    data: {
+      fromDate: new Date(),
+      customerId: customerOfRepTwo.id,
+      repId: repTwo.id,
+      openCustomerId: customerOfRepTwo.id,
+    },
   });
 
   return {
@@ -178,20 +201,55 @@ describe('acceptance: a rep cannot read another rep customer by id', () => {
     ).resolves.toMatchObject({ id: fixture.customerOfRepTwo.id });
   });
 
-  it('never returns the other rep customer through a list query either', async () => {
+  it('resolves the rep own customer, and only that one', async () => {
     const fixture = await seedFixture();
     const actorOne = repActor(fixture, 'one');
 
-    // The scope fragment is what a list screen would pass to Prisma. Prove it
+    // The positive half of the rule. Without it, "the other rep customer is
+    // invisible" would also be satisfied by a rep who can see nothing at all.
+    await expect(getCustomerScoped(actorOne, fixture.customerOfRepOne.id)).resolves.toMatchObject({
+      id: fixture.customerOfRepOne.id,
+    });
+
+    // The scope fragment is what a list screen passes to Prisma. Prove it
     // against the database rather than trusting the object shape.
     const visible = await prisma.customer.findMany({
       where: { AND: [{ deletedAt: null }, customerScope(actorOne)] },
     });
 
-    // Phase 3 replaces this placeholder scope with the assignment lookup. The
-    // placeholder id matches nothing, so a rep sees an empty list rather than
-    // every customer: the safe direction.
+    expect(visible.map((row) => row.id)).toEqual([fixture.customerOfRepOne.id]);
+  });
+
+  it('stops showing a customer once its assignment is closed', async () => {
+    const fixture = await seedFixture();
+    const actorOne = repActor(fixture, 'one');
+
+    // Hand the customer to the other rep, then ask the first one again. This is
+    // the case a `rep_id` filter alone would get wrong: he served the customer
+    // until the reassignment, and the row is still his history (D-021).
+    await prisma.customerRepAssignment.updateMany({
+      where: { repId: fixture.repOne.repId },
+      data: { toDate: new Date(), openCustomerId: null },
+    });
+    await prisma.customerRepAssignment.create({
+      data: {
+        fromDate: new Date(),
+        customerId: fixture.customerOfRepOne.id,
+        repId: fixture.repTwo.repId,
+        openCustomerId: fixture.customerOfRepOne.id,
+      },
+    });
+
+    const visible = await prisma.customer.findMany({
+      where: { AND: [{ deletedAt: null }, customerScope(actorOne)] },
+    });
     expect(visible).toEqual([]);
+
+    // The history is still there for anyone who asks "when did he serve them".
+    const history = await prisma.customerRepAssignment.findMany({
+      where: { customerId: fixture.customerOfRepOne.id },
+    });
+    expect(history).toHaveLength(2);
   });
 
   it('lets admin read any customer', async () => {

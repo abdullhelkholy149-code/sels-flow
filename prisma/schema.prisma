@@ -82,6 +82,39 @@ enum DocumentType {
   REP_CODE
 }
 
+// Phase 3: a customer pays cash on delivery or buys on account with a limit.
+enum PaymentTerms {
+  CASH
+  CREDIT
+}
+
+// A blocked customer cannot place or have an approved order (Section 5.1).
+enum CustomerStatus {
+  ACTIVE
+  BLOCKED
+  INACTIVE
+}
+
+// E-invoice receiver classification (Section 5.1); the value is stored from
+// Phase 3 because an invoice snapshot needs it, and used for submission only in
+// Phase 12.
+enum ReceiverType {
+  BUSINESS
+  PERSON
+  FOREIGN
+}
+
+// Customer ledger entry kinds (Section 5.6). Phase 3 only ever writes OPENING;
+// the rest are declared now so the enum does not change under an applied
+// migration when Phase 6 starts posting invoices and payments.
+enum LedgerEntryType {
+  OPENING
+  INVOICE
+  PAYMENT
+  CREDIT_NOTE
+  ADJUSTMENT
+}
+
 // ---------------------------------------------------------------------------
 // Identity (Phase 1 owns the behaviour; Phase 0 owns the table)
 // ---------------------------------------------------------------------------
@@ -284,26 +317,126 @@ model Rep {
   createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+  user        User                      @relation(fields: [userId], references: [id], onDelete: Restrict)
+  assignments CustomerRepAssignment[]
 
   @@index([isActive])
   @@index([deletedAt])
   @@map("reps")
 }
 
-model Customer {
+model CustomerCategory {
   id        String    @id @default(uuid()) @db.Uuid
-  userId    String?   @unique @map("user_id") @db.Uuid
-  code      String    @unique
-  name      String
+  name      String    @unique
+  nameEn    String?   @map("name_en")
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
   createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  customers Customer[]
 
   @@index([deletedAt])
+  @@map("customer_categories")
+}
+
+// Section 5.1 customer master. Money columns are Decimal like everywhere else;
+// the coordinates are Decimal(10,7) because the repo never uses floating point
+// for a number a business depends on, even a position.
+model Customer {
+  id                    String         @id @default(uuid()) @db.Uuid
+  // Nullable: a customer without a login account still exists as a master
+  // record. One created by a rep always has an account (D-022).
+  userId                String?        @unique @map("user_id") @db.Uuid
+  code                  String         @unique
+  name                  String
+  tradeName             String?        @map("trade_name")
+  contactPerson         String?        @map("contact_person")
+  phone                 String?
+  address               String?
+  governorate           String?
+  city                  String?
+  lat                   Decimal?       @db.Decimal(10, 7)
+  lng                   Decimal?       @db.Decimal(10, 7)
+  categoryId            String?        @map("category_id") @db.Uuid
+  priceListId           String?        @map("price_list_id") @db.Uuid
+  paymentTerms          PaymentTerms   @default(CASH) @map("payment_terms")
+  creditLimit           Decimal        @default(0) @map("credit_limit") @db.Decimal(14, 2)
+  creditDays            Int            @default(0) @map("credit_days")
+  status                CustomerStatus @default(ACTIVE)
+  taxRegistrationNumber String?        @map("tax_registration_number")
+  nationalId            String?        @map("national_id")
+  receiverType          ReceiverType   @default(BUSINESS) @map("receiver_type")
+  whatsappOptIn         Boolean        @default(false) @map("whatsapp_opt_in")
+  notes                 String?
+  deletedAt             DateTime?      @map("deleted_at") @db.Timestamptz(6)
+  createdAt             DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user          User?                     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  category      CustomerCategory?         @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  priceList     PriceList?                @relation(fields: [priceListId], references: [id], onDelete: SetNull)
+  assignments   CustomerRepAssignment[]
+  ledgerEntries CustomerLedgerEntry[]
+
+  // A customer is looked up by name, filtered by status and category, and a rep
+  // list is scoped through the assignment table.
+  @@index([deletedAt])
+  @@index([status])
+  @@index([categoryId])
+  @@index([priceListId])
+  @@index([name])
   @@map("customers")
+}
+
+// Section 5.1: exactly one current rep, with the full history kept so a
+// reassignment never rewrites a document from before it (D-021). `openCustomerId`
+// is a nullable unique alias of `customerId` that is set while the row is open
+// and nulled when it closes: Postgres treats NULLs as distinct, so it permits any
+// number of closed rows but only one open row per customer. It is the schema
+// expressible equivalent of a partial unique index, which Prisma cannot declare.
+model CustomerRepAssignment {
+  id             String    @id @default(uuid()) @db.Uuid
+  customerId     String    @map("customer_id") @db.Uuid
+  repId          String    @map("rep_id") @db.Uuid
+  openCustomerId String?   @unique @map("open_customer_id") @db.Uuid
+  fromDate       DateTime  @map("from_date") @db.Date
+  toDate         DateTime? @map("to_date") @db.Date
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  rep      Rep      @relation(fields: [repId], references: [id], onDelete: Restrict)
+
+  @@index([customerId, toDate])
+  @@index([repId, toDate])
+  @@map("customer_rep_assignments")
+}
+
+// Section 5.6 ledger, append only. Phase 3 writes the OPENING entry that carries
+// a customer's opening balance (Section 13); the balance is derived from the sum
+// of these rows, never stored as a source column (D-023). `referenceType` and
+// `referenceId` stay null until Phase 6 posts invoice and payment entries.
+model CustomerLedgerEntry {
+  id            String          @id @default(uuid()) @db.Uuid
+  customerId    String          @map("customer_id") @db.Uuid
+  entryType     LedgerEntryType @map("entry_type")
+  debit         Decimal         @default(0) @db.Decimal(14, 2)
+  credit        Decimal         @default(0) @db.Decimal(14, 2)
+  // Running balance after this row, computed under the same transaction that
+  // writes it. The derived total is still the authority (D-023).
+  balanceAfter  Decimal         @map("balance_after") @db.Decimal(14, 2)
+  referenceType String?         @map("reference_type")
+  referenceId   String?         @map("reference_id") @db.Uuid
+  notes         String?
+  createdById   String?         @map("created_by_id") @db.Uuid
+  createdAt     DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Restrict)
+
+  @@index([customerId, createdAt])
+  @@index([entryType])
+  @@map("customer_ledger_entries")
 }
 
 // ---------------------------------------------------------------------------
@@ -386,7 +519,8 @@ model PriceList {
   createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  items PriceListItem[]
+  items     PriceListItem[]
+  customers Customer[]
 
   @@index([deletedAt])
   @@map("price_lists")

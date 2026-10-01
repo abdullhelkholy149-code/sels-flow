@@ -142,17 +142,25 @@ export function SubmitButton({
   pendingLabel,
   className,
   variant = 'primary',
+  disabled,
 }: {
   children: React.ReactNode;
   pendingLabel?: string;
   className?: string;
   variant?: ButtonVariant;
+  /**
+   * A rule the screen can already see, e.g. "this rep still owns customers".
+   * Disabling is a courtesy to the operator; the service re-checks the same rule
+   * inside the transaction, because a button reflects a moment and the write
+   * happens later.
+   */
+  disabled?: boolean;
 }) {
   const { pending } = useFormStatus();
   return (
     <button
       type="submit"
-      disabled={pending}
+      disabled={pending || disabled}
       className={cn(
         'inline-flex items-center justify-center gap-2 rounded-card px-4 py-2.5 text-sm font-semibold transition',
         'disabled:cursor-not-allowed disabled:opacity-60',
@@ -170,13 +178,15 @@ export function InlineSubmitButton({
   children,
   className,
   variant = 'secondary',
+  disabled,
 }: {
   children: React.ReactNode;
   className?: string;
   variant?: ButtonVariant;
+  disabled?: boolean;
 }) {
   return (
-    <SubmitButton variant={variant} className={className} pendingLabel="...">
+    <SubmitButton variant={variant} className={className} pendingLabel="..." disabled={disabled}>
       {children}
     </SubmitButton>
   );

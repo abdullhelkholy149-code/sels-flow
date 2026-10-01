@@ -122,10 +122,14 @@ export function assertPermission(actor: Actor, permission: Permission): void {
 const NO_ROW = '00000000-0000-0000-0000-000000000000';
 
 /**
- * A rep sees only his own customers; a customer sees only himself; a role that
- * holds `customers:read_all` sees all. Rep ownership itself arrives in Phase 3
- * with `customer_rep_assignments`; until then a rep sees nothing, which is the
- * safe direction to fail in.
+ * A rep sees only the customers currently assigned to him; a customer sees only
+ * himself; a role that holds `customers:read_all` sees all.
+ *
+ * "Currently" is not a wording nicety: the assignment rows carry the full
+ * history, so filtering on `rep_id` alone would hand a rep every customer he
+ * used to serve, including the ones the office moved to a colleague. The open
+ * row (`to_date IS NULL`) is the only one that means "his customer now"
+ * (decision D-021).
  *
  * The decision is made by permission rather than by role name, so the map in
  * `lib/auth/permissions` stays the only place that answers "who may see what".
@@ -138,8 +142,10 @@ export function customerScope(actor: Actor): Prisma.CustomerWhereInput {
     return { id: actor.customerId ?? NO_ROW, deletedAt: null };
   }
   if (actor.role === Role.REP) {
-    // Phase 3 replaces this with the assignment table lookup.
-    return { id: NO_ROW, deletedAt: null };
+    return {
+      deletedAt: null,
+      assignments: { some: { repId: actor.repId ?? NO_ROW, toDate: null } },
+    };
   }
   return { id: NO_ROW, deletedAt: null };
 }
@@ -155,14 +161,18 @@ export function repScope(actor: Actor): Prisma.RepWhereInput {
   return { id: NO_ROW, deletedAt: null };
 }
 
-/** A customer sees only documents addressed to him. */
+/**
+ * A customer sees only documents addressed to him; a rep sees the documents of
+ * the customers currently assigned to him.
+ *
+ * The returned fragment keys on the document's own `customer_id`, so it can only
+ * be finished once a document table exists. Until Phase 5 adds orders this has no
+ * caller, and a rep resolving to a constant "nothing" is the safe direction to
+ * fail in: it denies rather than widens.
+ */
 export function customerDocumentScope(actor: Actor): { customerId: string } {
   if (actor.role === Role.CUSTOMER) {
     return { customerId: actor.customerId ?? NO_ROW };
-  }
-  if (actor.role === Role.REP) {
-    // Phase 3 replaces the sentinel with the assignment subquery.
-    return { customerId: NO_ROW };
   }
   return { customerId: NO_ROW };
 }
