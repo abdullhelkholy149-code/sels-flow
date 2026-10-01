@@ -66,17 +66,27 @@ export async function loadActor(session: SessionUser): Promise<Actor> {
     select: {
       id: true,
       role: true,
-      rep: { select: { id: true, name: true } },
-      customer: { select: { id: true, name: true } },
+      rep: { select: { id: true, name: true, isActive: true, deletedAt: true } },
+      customer: { select: { id: true, name: true, deletedAt: true } },
     },
   });
   if (!user) throw new PermissionDenied('users:read');
+
+  // A soft deleted or switched off rep is not a rep any more, and a deleted
+  // customer is not a customer. Dropping the link is deliberate: every scoped
+  // query denies on a *null* id by design, so a stale one - an id that points at
+  // a record nothing is meant to return - is the one shape of answer this code
+  // must never give. A blocked customer keeps his link on purpose, because he
+  // still needs the login to settle what he owes.
+  const rep = user.rep && user.rep.isActive && !user.rep.deletedAt ? user.rep : null;
+  const customer = user.customer && !user.customer.deletedAt ? user.customer : null;
+
   return {
     userId: user.id,
     role: user.role,
-    repId: user.rep?.id ?? null,
-    customerId: user.customer?.id ?? null,
-    displayName: user.rep?.name ?? user.customer?.name ?? user.id,
+    repId: rep?.id ?? null,
+    customerId: customer?.id ?? null,
+    displayName: rep?.name ?? customer?.name ?? user.id,
   };
 }
 

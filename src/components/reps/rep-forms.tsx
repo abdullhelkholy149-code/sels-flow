@@ -19,7 +19,12 @@ import {
   InlineSubmitButton,
   SubmitButton,
 } from '@/components/ui/form';
-import { createRepAction, deleteRepAction, setRepActiveAction } from '@/server/reps/actions';
+import {
+  createRepAction,
+  deleteRepAction,
+  setRepActiveAction,
+  updateRepAction,
+} from '@/server/reps/actions';
 
 function TemporaryPassword({ password }: { password: string }) {
   const t = useTranslations('reps');
@@ -84,6 +89,85 @@ export function CreateRepForm() {
       />
       <FormMessage result={state} />
       <SubmitButton className="w-full">{t('addRep')}</SubmitButton>
+    </form>
+  );
+}
+
+/**
+ * Edit a rep's master fields in place.
+ *
+ * A `<details>` per row rather than a separate page: the fields are five, the
+ * screen is already a table, and a full page per rep would be a route whose only
+ * content is a form.
+ *
+ * The phone and username are edited here *because* they are the login, and the
+ * service writes both the rep record and the account in one transaction. Leaving
+ * them out of this form would have been the quieter bug: the office changes a
+ * number, the login does not.
+ */
+export function EditRepForm({
+  repId,
+  name,
+  phone,
+  username,
+  maxDiscountPercent,
+  hiredAt,
+}: {
+  repId: string;
+  name: string;
+  phone: string;
+  username: string | null;
+  maxDiscountPercent: string;
+  hiredAt: string;
+}) {
+  const t = useTranslations('reps');
+  const [state, formAction] = useActionState(updateRepAction, null);
+  const errors = state && !state.ok ? state.errors : {};
+
+  return (
+    <form action={formAction} className="flex flex-col gap-3" noValidate>
+      <CsrfField />
+      <input type="hidden" name="repId" value={repId} />
+      <FieldErrors errors={errors} />
+      <Field label={t('name')} name="name" defaultValue={name} error={errors.name} />
+      <Field
+        label={t('phone')}
+        name="phone"
+        type="tel"
+        dir="ltr"
+        inputMode="tel"
+        defaultValue={phone}
+        error={errors.phone}
+      />
+      <Field
+        label={t('username')}
+        name="username"
+        required={false}
+        dir="ltr"
+        defaultValue={username ?? ''}
+        error={errors.username}
+      />
+      <Field
+        label={t('maxDiscountPercent')}
+        name="maxDiscountPercent"
+        type="text"
+        inputMode="decimal"
+        dir="ltr"
+        required={false}
+        defaultValue={maxDiscountPercent}
+        error={errors.maxDiscountPercent}
+      />
+      <Field
+        label={t('hiredAt')}
+        name="hiredAt"
+        type="date"
+        dir="ltr"
+        required={false}
+        defaultValue={hiredAt}
+        error={errors.hiredAt}
+      />
+      <FormMessage result={state} />
+      <SubmitButton variant="secondary">{t('save')}</SubmitButton>
     </form>
   );
 }

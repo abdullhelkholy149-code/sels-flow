@@ -19,6 +19,8 @@
     "customerCount": "عدد العملاء",
     "createTitle": "إضافة مندوب",
     "addRep": "إضافة المندوب",
+    "edit": "تعديل",
+    "save": "حفظ",
     "empty": "لا يوجد مناديب بعد، أضف أول مندوب",
     "activate": "تفعيل",
     "deactivate": "إيقاف",

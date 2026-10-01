@@ -350,6 +350,12 @@ function masterData(input: CustomerMasterInput) {
  *  - the opening balance, because the ledger is append only and a later
  *    correction is an ADJUSTMENT row (Phase 6), not an edit of history;
  *  - `lat`/`lng`, which the spec says the rep sets at the first visit (Phase 7).
+ *
+ * The phone is required here for the same reason it is required at creation: it
+ * is the customer's login identifier, so a master record that no longer agrees
+ * with the account would leave the office with two numbers for one customer and
+ * the login answering to the old one. Editing the phone moves the login with it
+ * (D-024).
  */
 export async function updateCustomer(
   actor: Actor,
@@ -357,10 +363,34 @@ export async function updateCustomer(
   input: CustomerMasterInput,
   trail: AuditTrail,
 ): Promise<void> {
+  const phone = input.phone;
+  if (phone === null) {
+    throw new ValidationError('رقم الموبايل مطلوب، فهو معرّف الدخول إلى حساب العميل');
+  }
+
   await withTransaction(async (tx) => {
     const before = await scopedCustomer(tx, actor, id);
 
+    // `customers.user_id` is nullable: a customer row may predate logins, and
+    // minting an account inside an edit would be a far bigger decision than the
+    // one asked for. The master is saved either way; only the write-through is
+    // skipped, and the audit says which happened.
+    const userId = before.userId;
+    const account = userId
+      ? await tx.user.findUniqueOrThrow({ where: { id: userId }, select: { phone: true } })
+      : null;
+
     await tx.customer.update({ where: { id }, data: masterData(input) });
+
+    // Written through to the account: the phone is the login id, and the
+    // uniqueness check that guards a duplicate login lives on the account, not on
+    // the master record.
+    if (userId) {
+      await rethrowAsValidation(
+        () => tx.user.update({ where: { id: userId }, data: { phone } }),
+        'رقم الموبايل أو اسم المستخدم مستخدم بالفعل',
+      );
+    }
 
     await writeAudit(tx, {
       ...auditContext(actor, trail),
@@ -375,8 +405,9 @@ export async function updateCustomer(
         categoryId: before.categoryId,
         priceListId: before.priceListId,
         whatsappOptIn: before.whatsappOptIn,
+        loginPhone: account?.phone ?? null,
       },
-      after: masterData(input),
+      after: { ...masterData(input), loginPhone: account ? phone : null },
     });
   });
 }

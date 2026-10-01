@@ -115,9 +115,16 @@ export async function updateRep(
   input: RepInput,
   trail: AuditTrail,
 ): Promise<void> {
+  const username = input.username ? input.username.toLowerCase() : null;
+
   await withTransaction(async (tx) => {
     const before = await tx.rep.findFirst({ where: { id, deletedAt: null } });
     if (!before) throw new ValidationError('المندوب غير موجود');
+
+    const account = await tx.user.findUniqueOrThrow({
+      where: { id: before.userId },
+      select: { phone: true, username: true },
+    });
 
     await tx.rep.update({
       where: { id },
@@ -129,6 +136,19 @@ export async function updateRep(
       },
     });
 
+    // The phone and the username *are* the login, so they are written here too.
+    // Editing them on the rep record alone would leave the office calling him on
+    // one number while the account still answers to another: two truths for one
+    // fact, with the uniqueness check only covering the account side.
+    await rethrowAsValidation(
+      () =>
+        tx.user.update({
+          where: { id: before.userId },
+          data: { phone: input.phone, username },
+        }),
+      'رقم الموبايل أو اسم المستخدم مستخدم بالفعل',
+    );
+
     await writeAudit(tx, {
       ...auditContext(actor, trail),
       action: AuditAction.UPDATE,
@@ -139,12 +159,16 @@ export async function updateRep(
         phone: before.phone,
         maxDiscountPercent: before.maxDiscountPercent.toFixed(2),
         hiredAt: before.hiredAt ? before.hiredAt.toISOString().slice(0, 10) : null,
+        loginPhone: account.phone,
+        username: account.username,
       },
       after: {
         name: input.name,
         phone: input.phone,
         maxDiscountPercent: input.maxDiscountPercent.toFixed(2),
         hiredAt: input.hiredAt ? input.hiredAt.toISOString().slice(0, 10) : null,
+        loginPhone: input.phone,
+        username,
       },
     });
   });
@@ -191,6 +215,11 @@ export async function setRepActive(
  * Removing him would leave those customers with no current rep, and "exactly one
  * current rep" (Section 5.1) would stop being true for real data. Reassign them
  * first; the history keeps his name on everything done before that.
+ *
+ * The account goes down with the record, for the same reason it does when he is
+ * switched off: `is_active` on the rep only hides him from assignment pickers, so
+ * a login left running would keep working and resolve to a rep row that no
+ * query is meant to return.
  */
 export async function deleteRep(actor: Actor, id: string, trail: AuditTrail): Promise<void> {
   await withTransaction(async (tx) => {
@@ -202,10 +231,14 @@ export async function deleteRep(actor: Actor, id: string, trail: AuditTrail): Pr
       throw new ValidationError('لا يمكن حذف مندوب له عملاء، أعد إسناد عملائه أولاً');
     }
 
+    const deletedAt = new Date();
+
     await tx.rep.update({
       where: { id },
-      data: { deletedAt: new Date(), isActive: false },
+      data: { deletedAt, isActive: false },
     });
+    await tx.user.update({ where: { id: before.userId }, data: { isActive: false } });
+    await revokeAllSessions(before.userId, tx);
 
     await writeAudit(tx, {
       ...auditContext(actor, trail),
@@ -213,7 +246,7 @@ export async function deleteRep(actor: Actor, id: string, trail: AuditTrail): Pr
       entityType: 'Rep',
       entityId: id,
       before: { code: before.code, name: before.name, isActive: before.isActive },
-      after: { deletedAt: new Date().toISOString(), isActive: false },
+      after: { deletedAt: deletedAt.toISOString(), isActive: false, accountSuspended: true },
     });
   });
 }

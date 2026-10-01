@@ -19,6 +19,8 @@
     "customerCount": "Customers",
     "createTitle": "Add a rep",
     "addRep": "Add rep",
+    "edit": "Edit",
+    "save": "Save",
     "empty": "No reps yet",
     "activate": "Switch on",
     "deactivate": "Switch off",

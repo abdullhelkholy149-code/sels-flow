@@ -27,6 +27,8 @@ export interface RepRow {
   code: string;
   name: string;
   phone: string;
+  /** The login name, which lives on the account and not on the rep record. */
+  username: string | null;
   maxDiscountPercent: Decimal;
   isActive: boolean;
   hiredAt: Date | null;
@@ -67,13 +69,17 @@ export async function listReps(actor: Actor, query: RepListFilters): Promise<Pag
         orderBy,
         skip,
         take,
-        include: { _count: { select: { assignments: { where: { toDate: null } } } } },
+        include: {
+          user: { select: { username: true } },
+          _count: { select: { assignments: { where: { toDate: null } } } },
+        },
       });
       return reps.map((rep) => ({
         id: rep.id,
         code: rep.code,
         name: rep.name,
         phone: rep.phone,
+        username: rep.user.username,
         maxDiscountPercent: rep.maxDiscountPercent,
         isActive: rep.isActive && rep.deletedAt === null,
         hiredAt: rep.hiredAt,

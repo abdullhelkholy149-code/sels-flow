@@ -1,6 +1,11 @@
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
-import { CreateRepForm, RepActiveToggleButton, RepDeleteButton } from '@/components/reps/rep-forms';
+import {
+  CreateRepForm,
+  EditRepForm,
+  RepActiveToggleButton,
+  RepDeleteButton,
+} from '@/components/reps/rep-forms';
 import { SiteFooter } from '@/components/layout/site-footer';
 import { SiteHeader } from '@/components/layout/site-header';
 import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui/card';
@@ -132,6 +137,23 @@ export default async function AdminRepsPage({ params, searchParams }: PageProps)
                               <div className="flex flex-wrap items-center gap-2">
                                 <RepActiveToggleButton repId={rep.id} isActive={rep.isActive} />
                                 <RepDeleteButton repId={rep.id} customerCount={rep.customerCount} />
+                                <details className="w-full">
+                                  <summary className="cursor-pointer text-xs text-brand-700">
+                                    {t('edit')}
+                                  </summary>
+                                  <div className="mt-3 max-w-sm">
+                                    <EditRepForm
+                                      repId={rep.id}
+                                      name={rep.name}
+                                      phone={rep.phone}
+                                      username={rep.username}
+                                      maxDiscountPercent={rep.maxDiscountPercent.toFixed(2)}
+                                      hiredAt={
+                                        rep.hiredAt ? rep.hiredAt.toISOString().slice(0, 10) : ''
+                                      }
+                                    />
+                                  </div>
+                                </details>
                               </div>
                             </td>
                           </tr>

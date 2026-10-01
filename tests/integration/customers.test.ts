@@ -25,17 +25,19 @@ import { Decimal } from '@/lib/format';
 import { hashPassword } from '@/lib/passwords';
 import { prisma } from '@/lib/prisma';
 import { login } from '@/server/auth/service';
-import { ValidationError, type Actor } from '@/server/data/access';
+import type { SessionUser } from '@/server/auth/session';
+import { loadActor, ValidationError, type Actor } from '@/server/data/access';
 import { listCustomers } from '@/server/customers/queries';
 import { canReceiveOrders, normalizeCreditTerms } from '@/server/customers/rules';
 import {
   createCustomer,
   setCustomerStatus,
   updateCreditTerms,
+  updateCustomer,
   type CreateCustomerInput,
 } from '@/server/customers/service';
 import { reassignCustomer } from '@/server/customers/service';
-import { deleteRep, setRepActive } from '@/server/reps/service';
+import { deleteRep, setRepActive, updateRep } from '@/server/reps/service';
 
 const PASSWORD = 'Integration!Pass1';
 const TRAIL = { ip: null, userAgent: 'customers-test' };
@@ -80,6 +82,7 @@ async function makeUser(role: Role, phone: string) {
 interface Fixture {
   adminUserId: string;
   repOneUserId: string;
+  repTwoUserId: string;
   repOne: string;
   repTwo: string;
 }
@@ -98,8 +101,38 @@ async function seedFixture(): Promise<Fixture> {
   return {
     adminUserId: admin.id,
     repOneUserId: repOneUser.id,
+    repTwoUserId: repTwoUser.id,
     repOne: repOne.id,
     repTwo: repTwo.id,
+  };
+}
+
+/**
+ * A live session for a user, as the cookie layer would produce.
+ *
+ * `loadActor` reads the master records from the database on every request rather
+ * than trusting the cookie, so testing it needs a real session row and the shape
+ * the app actually passes in - not a hand rolled object that happens to have the
+ * fields the test reads.
+ */
+async function openSession(userId: string): Promise<SessionUser> {
+  const session = await prisma.userSession.create({
+    data: {
+      userId,
+      csrfToken: 'c'.repeat(32),
+      expiresAt: new Date(Date.now() + 86_400_000),
+    },
+    select: { id: true, csrfToken: true, expiresAt: true, user: { select: { role: true } } },
+  });
+
+  return {
+    id: userId,
+    role: session.user.role,
+    sessionId: session.id,
+    csrfToken: session.csrfToken,
+    mustChangePassword: false,
+    expiresAt: session.expiresAt,
+    displayName: 'مندوب',
   };
 }
 
@@ -302,6 +335,161 @@ describe('acceptance: a rep sees only his own customers', () => {
     expect(
       (await prisma.rep.findUniqueOrThrow({ where: { id: fixture.repOne } })).deletedAt,
     ).toBeNull();
+  });
+
+  it('takes the account down when the rep is deleted, not only the record', async () => {
+    const fixture = await seedFixture();
+    const session = await openSession(fixture.repOneUserId);
+
+    await deleteRep(adminActor(fixture), fixture.repOne, TRAIL);
+
+    // `is_active` on the rep only hides him from the assignment pickers. A login
+    // left running would keep working and would resolve to a rep row that nothing
+    // is meant to return - so deleting a rep has to kill the login the same way
+    // switching him off does.
+    const user = await prisma.user.findUniqueOrThrow({ where: { id: fixture.repOneUserId } });
+    expect(user.isActive).toBe(false);
+
+    const after = await prisma.userSession.findUniqueOrThrow({ where: { id: session.id } });
+    expect(after.revokedAt).not.toBeNull();
+  });
+
+  it('does not resolve a deleted rep as a rep at all', async () => {
+    const fixture = await seedFixture();
+    const sessionUser = await openSession(fixture.repOneUserId);
+
+    expect((await loadActor(sessionUser)).repId).toBe(fixture.repOne);
+
+    await deleteRep(adminActor(fixture), fixture.repOne, TRAIL);
+
+    // The link is dropped rather than left pointing at the dead row: every scoped
+    // query denies on a null id, so that is the answer that cannot widen.
+    expect((await loadActor(sessionUser)).repId).toBeNull();
+  });
+
+  it('keeps a switched off rep out of the actor, without touching his record', async () => {
+    const fixture = await seedFixture();
+    const sessionUser = await openSession(fixture.repOneUserId);
+
+    await setRepActive(adminActor(fixture), fixture.repOne, false, TRAIL);
+
+    expect((await loadActor(sessionUser)).repId).toBeNull();
+    expect(
+      (await prisma.rep.findUniqueOrThrow({ where: { id: fixture.repOne } })).deletedAt,
+    ).toBeNull();
+  });
+
+  it('moves the login with the phone when a customer is edited', async () => {
+    const fixture = await seedFixture();
+    const id = await seedCustomer(fixture, fixture.repOne);
+    const newPhone = nextPhone();
+
+    await updateCustomer(
+      adminActor(fixture),
+      id,
+      { ...input({ repId: fixture.repOne }), phone: newPhone, name: 'اسم بعد التعديل' },
+      TRAIL,
+    );
+
+    const stored = await prisma.customer.findUniqueOrThrow({
+      where: { id },
+      include: { user: { select: { phone: true } } },
+    });
+
+    expect(stored.phone).toBe(newPhone);
+    // The phone is the login id. If only the master record moved, the office would
+    // call him on the new number and the account would still answer to the old.
+    expect(stored.user?.phone).toBe(newPhone);
+  });
+
+  it('refuses a customer edit that would take another login phone', async () => {
+    const fixture = await seedFixture();
+    const mine = await seedCustomer(fixture, fixture.repOne);
+    const otherPhone = (
+      await prisma.user.findUniqueOrThrow({ where: { id: fixture.repTwoUserId } })
+    ).phone;
+
+    await expect(
+      updateCustomer(
+        adminActor(fixture),
+        mine,
+        { ...input({ repId: fixture.repOne }), phone: otherPhone, name: ' renaming' },
+        TRAIL,
+      ),
+    ).rejects.toThrow(ValidationError);
+
+    // The whole edit is refused, so the name change next to the phone does not
+    // land half applied either.
+    const customer = await prisma.customer.findUniqueOrThrow({ where: { id: mine } });
+    expect(customer.phone).not.toBe(otherPhone);
+    expect(customer.name).toBe('عميل للاختبار');
+  });
+
+  it('refuses a customer edit with no phone, because the phone is the login', async () => {
+    const fixture = await seedFixture();
+    const id = await seedCustomer(fixture, fixture.repOne);
+
+    await expect(
+      updateCustomer(
+        adminActor(fixture),
+        id,
+        { ...input({ repId: fixture.repOne }), phone: null },
+        TRAIL,
+      ),
+    ).rejects.toThrow(ValidationError);
+  });
+
+  it('moves the rep login with the phone and the username on an edit', async () => {
+    const fixture = await seedFixture();
+    const phone = nextPhone();
+
+    await updateRep(
+      adminActor(fixture),
+      fixture.repOne,
+      {
+        name: 'مندوب أول محدث',
+        phone,
+        username: 'Ahmed.Updated',
+        maxDiscountPercent: new Decimal('15'),
+        hiredAt: new Date('2026-01-15T00:00:00.000Z'),
+      },
+      TRAIL,
+    );
+
+    const rep = await prisma.rep.findUniqueOrThrow({ where: { id: fixture.repOne } });
+    const user = await prisma.user.findUniqueOrThrow({ where: { id: fixture.repOneUserId } });
+
+    expect(rep.name).toBe('مندوب أول محدث');
+    expect(rep.phone).toBe(phone);
+    // Usernames are stored folded to lower case, so the login that resolves
+    // `Ahmed.Updated` and the one stored here cannot disagree.
+    expect(user.username).toBe('ahmed.updated');
+    expect(user.phone).toBe(phone);
+  });
+
+  it('refuses a rep edit that would take a colleague login phone', async () => {
+    const fixture = await seedFixture();
+    const otherPhone = (
+      await prisma.user.findUniqueOrThrow({ where: { id: fixture.repTwoUserId } })
+    ).phone;
+
+    await expect(
+      updateRep(
+        adminActor(fixture),
+        fixture.repOne,
+        {
+          name: 'محاولة',
+          phone: otherPhone,
+          username: null,
+          maxDiscountPercent: new Decimal(0),
+          hiredAt: null,
+        },
+        TRAIL,
+      ),
+    ).rejects.toThrow(ValidationError);
+
+    const rep = await prisma.rep.findUniqueOrThrow({ where: { id: fixture.repOne } });
+    expect(rep.name).toBe('مندوب أول');
   });
 
   it('lets an admin read every customer', async () => {
