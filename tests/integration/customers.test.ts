@@ -339,7 +339,7 @@ describe('acceptance: a rep sees only his own customers', () => {
 
   it('takes the account down when the rep is deleted, not only the record', async () => {
     const fixture = await seedFixture();
-    const session = await openSession(fixture.repOneUserId);
+    const sessionUser = await openSession(fixture.repOneUserId);
 
     await deleteRep(adminActor(fixture), fixture.repOne, TRAIL);
 
@@ -350,8 +350,16 @@ describe('acceptance: a rep sees only his own customers', () => {
     const user = await prisma.user.findUniqueOrThrow({ where: { id: fixture.repOneUserId } });
     expect(user.isActive).toBe(false);
 
-    const after = await prisma.userSession.findUniqueOrThrow({ where: { id: session.id } });
-    expect(after.revokedAt).not.toBeNull();
+    // Counted the way the session reader asks: rows with no revocation. The row
+    // itself stays, because the audit trail points at it.
+    const live = await prisma.userSession.count({
+      where: { userId: fixture.repOneUserId, revokedAt: null },
+    });
+    expect(live).toBe(0);
+    expect(
+      (await prisma.userSession.findUniqueOrThrow({ where: { id: sessionUser.sessionId } }))
+        .revokedAt,
+    ).not.toBeNull();
   });
 
   it('does not resolve a deleted rep as a rep at all', async () => {
